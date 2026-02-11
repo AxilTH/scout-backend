@@ -1,7 +1,6 @@
-# docker-compose.yml
 services:
   # -------------------------------------------------
-  # PostgreSQL — база данных для всех микросервисов
+  # PostgreSQL — база данных
   # -------------------------------------------------
   postgresql:
     image: postgres:17
@@ -10,10 +9,10 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - pg_data:/var/lib/postgresql/data  # данные сохраняются даже после остановки
+      - pg_data:/var/lib/postgresql/data
 
   # -------------------------------------------------
-  # MinIO — хранилище файлов (S3-совместимое)
+  # MinIO — файловое хранилище
   # -------------------------------------------------
   minio:
     image: minio/minio
@@ -22,46 +21,51 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "9001:9001"  # Веб-интерфейс
+      - "9001:9001"  # Веб-интерфейс MinIO
     volumes:
-      - minio_data:/data
+      - minio_data:/data  # ✅ Исправлено
 
   # -------------------------------------------------
-  # Nginx — обратный прокси (API Gateway + фронтенд)
-  # -------------------------------------------------
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"      # HTTP
-    volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf  # наш конфиг
-      - ../scout-frontend/dist:/usr/share/nginx/html    # статика фронтенда (из соседней папки!)
-    depends_on:
-      - education-service  # ждёт, пока запустится сервис
-
-  # -------------------------------------------------
-  # Education Service — наш первый микросервис на Go
+  # Education Service — микросервис на Go
   # -------------------------------------------------
   education-service:
     build: ./services/education
     environment:
-      # Переменные окружения — способ передать настройки в контейнер
-      DB_HOST: postgresql
-      DB_PORT: 5432
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      DB_HOST: postgresql
+      DB_PORT: "5432"
       MINIO_HOST: minio
-      MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PORT: "9000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: on-failure
+
+  # -------------------------------------------------
+  # Nginx — API Gateway и фронтенд
+  # -------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ../scout-frontend/dist:/usr/share/nginx/html
     depends_on:
-      - postgresql
-      - minio
+      education-service:
+        condition: service_healthy
+    restart: "no"
 
 # -------------------------------------------------
 # Именованные тома для хранения данных
 # -------------------------------------------------
 volumes:
-  pg_data:
-  minio_data:
+  pg_data:   
+  minio_data: 

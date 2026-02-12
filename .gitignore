@@ -17,6 +17,9 @@ dist/
 # Docker
 .dockerignore
 
+# Docker Compose
+docker-compose.local.yml
+
 # Logs
 *.log
 

@@ -41,15 +41,22 @@ func main() {
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		log.Fatalf("Failed to apply migrations: %v", err)
 	}
-	log.Println("✅ Migrations applied successfully")
+	log.Println("Migrations applied successfully")
 
-	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+
+	r.POST("/courses", handler.CreateCourse)
+	r.GET("/courses/:id", handler.GetCourse)
+	r.GET("/courses", handler.GetCourses)
 
 	r.GET("/health", handler.HealthCheck)
 
 	// TODO: Запустить HTTP-сервер
-	log.Println("🚀 Starting Education Service on :8081")
+	log.Println("Starting Education Service on :8081")
 	if err := r.Run(":8081"); err != nil {
-		log.Fatalf("❌ Failed to start server: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

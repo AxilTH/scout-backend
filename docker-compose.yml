@@ -23,7 +23,7 @@ services:
     ports:
       - "9001:9001"  # Веб-интерфейс MinIO
     volumes:
-      - minio_data:/data  # ✅ Исправлено
+      - minio_data:/data
 
   # -------------------------------------------------
   # Education Service — микросервис на Go

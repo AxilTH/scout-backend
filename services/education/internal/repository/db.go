@@ -20,6 +20,6 @@ func NewPostgreSQLDB(host, port, user, password, dbname string) (*sqlx.DB, error
 		return nil, fmt.Errorf("failed to ping DB: %w", err)
 	}
 
-	log.Println("✅ Successfully connected to PostgreSQL")
+	log.Println("Successfully connected to PostgreSQL")
 	return db, nil
 }

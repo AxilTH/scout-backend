@@ -5,7 +5,6 @@ WORKDIR /app
 COPY . .
 RUN go build -o education-service ./cmd/education
 
-# Скачиваем wait-for-it.sh прямо в билд-стадии
 RUN wget -O wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
     && chmod +x wait-for-it.sh
 

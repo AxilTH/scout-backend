@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/AxilTH/scout-backend/services/education/internal/model"
@@ -46,8 +47,15 @@ func GetCourse(c *gin.Context, repo *repository.CourseRepository) {
 }
 
 func CreateCourse(c *gin.Context, repo *repository.CourseRepository) {
-	var req validator.CreateCourseRequest
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Authentication middleware not configured"})
+		return
+	}
 
+	log.Printf("User %s is creating a course", userID)
+
+	var req validator.CreateCourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON format"})
 		return

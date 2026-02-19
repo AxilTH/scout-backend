@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/AxilTH/scout-backend/services/education/internal/handler"
+	"github.com/AxilTH/scout-backend/services/education/internal/middleware"
 	"github.com/AxilTH/scout-backend/services/education/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
@@ -18,6 +19,11 @@ func main() {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbName := os.Getenv("DB_NAME")
+	jwtSecret := os.Getenv("JWT_SECRET")
+
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET is required")
+	}
 
 	db, err := repository.NewPostgreSQLDB(dbHost, dbPort, dbUser, dbPassword, dbName)
 	if err != nil {
@@ -49,7 +55,7 @@ func main() {
 	r.Use(gin.Recovery())
 	courseRepo := repository.NewCourseRepository(db)
 
-	r.POST("/courses", func(c *gin.Context) { handler.CreateCourse(c, courseRepo) })
+	r.POST("/courses", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateCourse(c, courseRepo) })
 	r.GET("/courses/:id", func(c *gin.Context) { handler.GetCourse(c, courseRepo) })
 	r.GET("/courses", func(c *gin.Context) { handler.GetCourses(c, courseRepo) })
 

@@ -47,10 +47,11 @@ func main() {
 
 	r := gin.New()
 	r.Use(gin.Recovery())
+	courseRepo := repository.NewCourseRepository(db)
 
-	r.POST("/courses", handler.CreateCourse)
-	r.GET("/courses/:id", handler.GetCourse)
-	r.GET("/courses", handler.GetCourses)
+	r.POST("/courses", func(c *gin.Context) { handler.CreateCourse(c, courseRepo) })
+	r.GET("/courses/:id", func(c *gin.Context) { handler.GetCourse(c, courseRepo) })
+	r.GET("/courses", func(c *gin.Context) { handler.GetCourses(c, courseRepo) })
 
 	r.GET("/health", handler.HealthCheck)
 

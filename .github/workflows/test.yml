@@ -1,0 +1,27 @@
+name: Backend Tests
+
+on:
+  push:
+    branches-ignore: []  # запускать на все ветки
+  pull_request:
+    branches: [ "dev" ]  # PR только в dev
+
+jobs:
+  test-education:
+    name: Run Education Service Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: services/education/go.sum
+
+      - name: Run tests
+        working-directory: services/education
+        run: |
+          go mod download
+          go test ./... -v

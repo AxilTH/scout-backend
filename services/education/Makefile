@@ -1,6 +1,5 @@
 # Scout Education Service — Makefile
-
-.PHONY: build test test-validator run clean
+.PHONY: build test test-validator test-activity run clean
 
 # Сборка бинарника
 build:
@@ -10,9 +9,17 @@ build:
 test:
 	go test ./... -v
 
-# Запуск только тестов валидации
+# Запуск только тестов валидации (курсы + активности)
 test-validator:
 	go test ./internal/validator/... -v
+
+# Запуск тестов для курсов
+test-course:
+	go test ./internal/validator/... -run TestCreateCourse -v
+
+# Запуск тестов для активностей
+test-activity:
+	go test ./internal/validator/... -run TestCreateActivity -v
 
 # Запуск сервиса локально (без Docker)
 run:

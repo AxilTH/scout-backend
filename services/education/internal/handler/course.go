@@ -10,8 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var validate = validator.NewValidator()
-
 func GetCourses(c *gin.Context, repo *repository.CourseRepository) {
 	squadID := c.Query("squad_id")
 	if squadID == "" {
@@ -24,7 +22,7 @@ func GetCourses(c *gin.Context, repo *repository.CourseRepository) {
 		return
 	}
 
-	courses, err := repo.List(squadID)
+	courses, err := repo.ListBySquad(squadID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -47,20 +45,22 @@ func GetCourse(c *gin.Context, repo *repository.CourseRepository) {
 }
 
 func CreateCourse(c *gin.Context, repo *repository.CourseRepository) {
+	// Получаем user_id из контекста
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Authentication middleware not configured"})
 		return
 	}
-
 	log.Printf("User %s is creating a course", userID)
 
+	// Парсим JSON в Request
 	var req validator.CreateCourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON format"})
 		return
 	}
 
+	// Преобразуем в Input
 	input := validator.CreateCourseInput{
 		SquadID:     req.SquadID,
 		Year:        req.Year,
@@ -70,16 +70,19 @@ func CreateCourse(c *gin.Context, repo *repository.CourseRepository) {
 		EndsAt:      req.EndsAt,
 	}
 
+	// Структурная валидация
 	if err := validate.Struct(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": validator.FormatError(err)})
 		return
 	}
 
+	// Бизнес-валидация
 	if err := input.Validate(); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Создаем модель и сохраняем в БД
 	course := &model.Course{
 		SquadID:     input.SquadID,
 		Year:        input.Year,

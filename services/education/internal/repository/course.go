@@ -47,7 +47,7 @@ func (r *CourseRepository) GetByID(id string) (*model.Course, error) {
 	return &course, err
 }
 
-func (r *CourseRepository) List(squadID string) ([]model.Course, error) {
+func (r *CourseRepository) ListBySquad(squadID string) ([]model.Course, error) {
 	var courses []model.Course
 	err := r.db.Select(&courses, "SELECT * FROM courses WHERE squad_id = $1 ORDER BY year DESC", squadID)
 	return courses, err

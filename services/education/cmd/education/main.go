@@ -54,10 +54,16 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	courseRepo := repository.NewCourseRepository(db)
+	activityRepo := repository.NewActivityRepository(db)
 
-	r.POST("/courses", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateCourse(c, courseRepo) })
-	r.GET("/courses/:id", func(c *gin.Context) { handler.GetCourse(c, courseRepo) })
 	r.GET("/courses", func(c *gin.Context) { handler.GetCourses(c, courseRepo) })
+	r.GET("/courses/:id", func(c *gin.Context) { handler.GetCourse(c, courseRepo) })
+	r.POST("/courses", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateCourse(c, courseRepo) })
+	r.GET("/activities", func(c *gin.Context) { handler.GetActivities(c, activityRepo) })
+	r.GET("/activities/:id", func(c *gin.Context) { handler.GetActivity(c, activityRepo) })
+	r.POST("/activities", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateActivity(c, activityRepo) })
+	r.PUT("/activities/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.UpdateActivity(c, activityRepo) })
+	r.DELETE("/activities/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.DeleteActivity(c, activityRepo) })
 
 	r.GET("/health", handler.HealthCheck)
 

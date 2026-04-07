@@ -21,8 +21,8 @@ func TestCreateActivityInput_StructuralValidation(t *testing.T) {
 		{
 			name: "valid input",
 			input: CreateActivityInput{
-				CourseID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-				ActivityTypeID: "a1b2c3d4-e5f6-4890-b1c2-d3e4f5a6b7c8",
+				CourseID:       1,
+				ActivityTypeID: 1,
 				Title:          "Valid Activity",
 				StartsAt:       time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC),
 				EndsAt:         time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC),
@@ -34,7 +34,7 @@ func TestCreateActivityInput_StructuralValidation(t *testing.T) {
 		{
 			name: "missing course_id",
 			input: CreateActivityInput{
-				ActivityTypeID: "a1b2c3d4-e5f6-4890-b1c2-d3e4f5a6b7c8",
+				ActivityTypeID: 1,
 				Title:          "No CourseID",
 				StartsAt:       time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC),
 				EndsAt:         time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC),
@@ -43,34 +43,34 @@ func TestCreateActivityInput_StructuralValidation(t *testing.T) {
 			errorMsg:    "CourseID is required",
 		},
 		{
-			name: "invalid course_id uuid",
+			name: "invalid course_id zero",
 			input: CreateActivityInput{
-				CourseID:       "not-a-uuid",
-				ActivityTypeID: "a1b2c3d4-e5f6-4890-b1c2-d3e4f5a6b7c8",
-				Title:          "Invalid UUID",
+				CourseID:       0,
+				ActivityTypeID: 1,
+				Title:          "Invalid CourseID",
 				StartsAt:       time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC),
 				EndsAt:         time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC),
 			},
 			expectError: true,
-			errorMsg:    "Invalid UUID format for CourseID",
+			errorMsg:    "CourseID is required",
 		},
 		{
-			name: "invalid activity_type_id uuid",
+			name: "invalid activity_type_id zero",
 			input: CreateActivityInput{
-				CourseID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-				ActivityTypeID: "not-a-uuid",
-				Title:          "Invalid UUID",
+				CourseID:       1,
+				ActivityTypeID: 0,
+				Title:          "Invalid ActivityTypeID",
 				StartsAt:       time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC),
 				EndsAt:         time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC),
 			},
 			expectError: true,
-			errorMsg:    "Invalid UUID format for ActivityTypeID",
+			errorMsg:    "ActivityTypeID is required",
 		},
 		{
 			name: "empty title",
 			input: CreateActivityInput{
-				CourseID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-				ActivityTypeID: "a1b2c3d4-e5f6-4890-b1c2-d3e4f5a6b7c8",
+				CourseID:       1,
+				ActivityTypeID: 1,
 				Title:          "",
 				StartsAt:       time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC),
 				EndsAt:         time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC),
@@ -81,8 +81,8 @@ func TestCreateActivityInput_StructuralValidation(t *testing.T) {
 		{
 			name: "negative max_score",
 			input: CreateActivityInput{
-				CourseID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-				ActivityTypeID: "a1b2c3d4-e5f6-4890-b1c2-d3e4f5a6b7c8",
+				CourseID:       1,
+				ActivityTypeID: 1,
 				Title:          "Negative Score",
 				StartsAt:       time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC),
 				EndsAt:         time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC),
@@ -144,8 +144,8 @@ func TestCreateActivityInput_BusinessValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := CreateActivityInput{
-				CourseID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-				ActivityTypeID: "a1b2c3d4-e5f6-4890-b1c2-d3e4f5a6b7c8",
+				CourseID:       1,
+				ActivityTypeID: 1,
 				Title:          "Test Activity",
 				StartsAt:       tt.startsAt,
 				EndsAt:         tt.endsAt,

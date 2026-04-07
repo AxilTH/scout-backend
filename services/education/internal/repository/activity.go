@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/AxilTH/scout-backend/services/education/internal/model"
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -18,19 +17,18 @@ func NewActivityRepository(db *sqlx.DB) *ActivityRepository {
 }
 
 func (r *ActivityRepository) Create(activity *model.Activity) error {
-	activity.ID = uuid.New().String()
 	activity.CreatedAt = time.Now()
 	activity.UpdatedAt = time.Now()
 
 	query := `
-		INSERT INTO activities 
-		(id, course_id, activity_type_id, title, description, starts_at, ends_at, max_score, is_published, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO activities
+		(course_id, activity_type_id, title, description, starts_at, ends_at, max_score, is_published, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id
 	`
 
-	_, err := r.db.Exec(
+	err := r.db.QueryRow(
 		query,
-		activity.ID,
 		activity.CourseID,
 		activity.ActivityTypeID,
 		activity.Title,
@@ -41,12 +39,12 @@ func (r *ActivityRepository) Create(activity *model.Activity) error {
 		activity.IsPublished,
 		activity.CreatedAt,
 		activity.UpdatedAt,
-	)
+	).Scan(&activity.ID)
 
 	return err
 }
 
-func (r *ActivityRepository) GetByID(id string) (*model.Activity, error) {
+func (r *ActivityRepository) GetByID(id int64) (*model.Activity, error) {
 	var activity model.Activity
 
 	err := r.db.Get(&activity, "SELECT * FROM activities WHERE id = $1", id)
@@ -57,7 +55,7 @@ func (r *ActivityRepository) GetByID(id string) (*model.Activity, error) {
 	return &activity, err
 }
 
-func (r *ActivityRepository) ListByCourse(courseId string) ([]model.Activity, error) {
+func (r *ActivityRepository) ListByCourse(courseId int64) ([]model.Activity, error) {
 	var activities []model.Activity
 	err := r.db.Select(&activities, "SELECT * FROM activities WHERE course_id = $1 ORDER BY starts_at ASC", courseId)
 
@@ -69,8 +67,8 @@ func (r *ActivityRepository) Update(activity *model.Activity) error {
 
 	query := `
 		UPDATE activities
-		SET title = $1, description = $2, starts_at = $3, ends_at = $4, 
-			 max_score = $5, is_published = $6, updated_at = $7 
+		SET title = $1, description = $2, starts_at = $3, ends_at = $4,
+			 max_score = $5, is_published = $6, updated_at = $7
 		WHERE id = $8
 	`
 
@@ -89,7 +87,7 @@ func (r *ActivityRepository) Update(activity *model.Activity) error {
 	return err
 }
 
-func (r *ActivityRepository) Delete(id string) error {
+func (r *ActivityRepository) Delete(id int64) error {
 	_, err := r.db.Exec("DELETE FROM activities WHERE id = $1", id)
 	return err
 }

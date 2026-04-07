@@ -55,15 +55,23 @@ func main() {
 	r.Use(gin.Recovery())
 	courseRepo := repository.NewCourseRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
+	assignmentRepo := repository.NewAssignmentRepository(db)
 
 	r.GET("/courses", func(c *gin.Context) { handler.GetCourses(c, courseRepo) })
 	r.GET("/courses/:id", func(c *gin.Context) { handler.GetCourse(c, courseRepo) })
 	r.POST("/courses", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateCourse(c, courseRepo) })
+
 	r.GET("/activities", func(c *gin.Context) { handler.GetActivities(c, activityRepo) })
 	r.GET("/activities/:id", func(c *gin.Context) { handler.GetActivity(c, activityRepo) })
 	r.POST("/activities", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateActivity(c, activityRepo) })
 	r.PUT("/activities/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.UpdateActivity(c, activityRepo) })
 	r.DELETE("/activities/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.DeleteActivity(c, activityRepo) })
+
+	r.GET("/assignments", func(c *gin.Context) { handler.GetAssignments(c, assignmentRepo) })
+	r.GET("/assignments/:id", func(c *gin.Context) { handler.GetAssignment(c, assignmentRepo) })
+	r.POST("/assignments", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateAssignment(c, assignmentRepo) })
+	r.PUT("/assignments/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.UpdateAssignment(c, assignmentRepo) })
+	r.DELETE("/assignments/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.DeleteAssignment(c, assignmentRepo) })
 
 	r.GET("/health", handler.HealthCheck)
 

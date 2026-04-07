@@ -3,6 +3,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/AxilTH/scout-backend/services/education/internal/model"
 	"github.com/AxilTH/scout-backend/services/education/internal/repository"
@@ -11,14 +12,15 @@ import (
 )
 
 func GetCourses(c *gin.Context, repo *repository.CourseRepository) {
-	squadID := c.Query("squad_id")
-	if squadID == "" {
+	squadIDStr := c.Query("squad_id")
+	if squadIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "squad_id query parameter is required"})
 		return
 	}
 
-	if err := validator.ValidateSquadID(squadID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format for squad_id"})
+	squadID, err := strconv.ParseInt(squadIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid squad_id format"})
 		return
 	}
 
@@ -31,7 +33,13 @@ func GetCourses(c *gin.Context, repo *repository.CourseRepository) {
 }
 
 func GetCourse(c *gin.Context, repo *repository.CourseRepository) {
-	id := c.Param("id")
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID format"})
+		return
+	}
+
 	course, err := repo.GetByID(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})

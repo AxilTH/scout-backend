@@ -17,7 +17,7 @@ func TestCreateCourseInput_StructuralValidation(t *testing.T) {
 		{
 			name: "valid input",
 			input: CreateCourseInput{
-				SquadID:  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+				SquadID:  1,
 				Year:     2026,
 				Title:    "Valid Course",
 				StartsAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
@@ -37,21 +37,21 @@ func TestCreateCourseInput_StructuralValidation(t *testing.T) {
 			errorMsg:    "SquadID is required",
 		},
 		{
-			name: "invalid uuid format",
+			name: "invalid squad_id zero",
 			input: CreateCourseInput{
-				SquadID:  "not-a-uuid",
+				SquadID:  0,
 				Year:     2026,
-				Title:    "Invalid UUID",
+				Title:    "Invalid SquadID",
 				StartsAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
 				EndsAt:   time.Date(2027, 5, 31, 0, 0, 0, 0, time.UTC),
 			},
 			expectError: true,
-			errorMsg:    "Invalid UUID format for SquadID",
+			errorMsg:    "SquadID is required",
 		},
 		{
 			name: "empty title",
 			input: CreateCourseInput{
-				SquadID:  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+				SquadID:  1,
 				Year:     2026,
 				Title:    "",
 				StartsAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
@@ -113,7 +113,7 @@ func TestCreateCourseInput_BusinessValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := CreateCourseInput{
-				SquadID:  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+				SquadID:  1,
 				Year:     2026,
 				Title:    "Test Course",
 				StartsAt: tt.startsAt,

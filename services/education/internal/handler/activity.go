@@ -3,6 +3,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/AxilTH/scout-backend/services/education/internal/model"
 	"github.com/AxilTH/scout-backend/services/education/internal/repository"
@@ -11,9 +12,15 @@ import (
 )
 
 func GetActivities(c *gin.Context, repo *repository.ActivityRepository) {
-	courseID := c.Query("course_id")
-	if courseID == "" {
+	courseIDStr := c.Query("course_id")
+	if courseIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "course_id query parameter is required"})
+		return
+	}
+
+	courseID, err := strconv.ParseInt(courseIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course_id format"})
 		return
 	}
 
@@ -27,7 +34,13 @@ func GetActivities(c *gin.Context, repo *repository.ActivityRepository) {
 }
 
 func GetActivity(c *gin.Context, repo *repository.ActivityRepository) {
-	id := c.Param("id")
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid activity ID format"})
+		return
+	}
+
 	activity, err := repo.GetByID(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -96,8 +109,13 @@ func CreateActivity(c *gin.Context, repo *repository.ActivityRepository) {
 }
 
 func UpdateActivity(c *gin.Context, repo *repository.ActivityRepository) {
-	id := c.Param("id")
-	
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid activity ID format"})
+		return
+	}
+
 	existing, err := repo.GetByID(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -156,7 +174,12 @@ func UpdateActivity(c *gin.Context, repo *repository.ActivityRepository) {
 }
 
 func DeleteActivity(c *gin.Context, repo *repository.ActivityRepository) {
-	id := c.Param("id")
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid activity ID format"})
+		return
+	}
 
 	existing, err := repo.GetByID(id)
 	if err != nil {

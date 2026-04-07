@@ -7,8 +7,8 @@ import (
 
 // CreateActivityRequest — структура ТОЛЬКО для парсинга JSON (без валидации)
 type CreateActivityRequest struct {
-	CourseID       string    `json:"course_id"`
-	ActivityTypeID string    `json:"activity_type_id"`
+	CourseID       int64     `json:"course_id"`
+	ActivityTypeID int64     `json:"activity_type_id"`
 	Title          string    `json:"title"`
 	Description    *string   `json:"description"`
 	StartsAt       time.Time `json:"starts_at"`
@@ -19,8 +19,8 @@ type CreateActivityRequest struct {
 
 // CreateActivityInput — структура ДЛЯ валидации (с тегами)
 type CreateActivityInput struct {
-	CourseID       string    `validate:"required,uuid4"`
-	ActivityTypeID string    `validate:"required,uuid4"`
+	CourseID       int64     `validate:"required,min=1"`
+	ActivityTypeID int64     `validate:"required,min=1"`
 	Title          string    `validate:"required,min=1,max=255"`
 	Description    *string   `validate:"omitempty"`
 	StartsAt       time.Time `validate:"required"`

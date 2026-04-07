@@ -1,7 +1,7 @@
 CREATE TABLE activities (
-    id UUID PRIMARY KEY,
-    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    activity_type_id UUID NOT NULL REFERENCES activity_types(id),
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    activity_type_id BIGINT NOT NULL REFERENCES activity_types(id),
     title TEXT NOT NULL,
     description TEXT,
     starts_at TIMESTAMP NOT NULL,

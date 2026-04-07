@@ -37,5 +37,11 @@ docker-compose.local.yml
 .DS_Store
 Thumbs.db
 
+# Docs
+docs/
+
+# AI permissions
+.permissions/
+
 # Generate JWT Script (needed to delete)
 generate_jwt.go

@@ -1,7 +1,7 @@
 -- migrations/000001_init.up.sql
 CREATE TABLE courses (
-    id UUID PRIMARY KEY,
-    squad_id UUID NOT NULL,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    squad_id BIGINT NOT NULL,
     year INTEGER NOT NULL,
     title TEXT NOT NULL,
     description TEXT,

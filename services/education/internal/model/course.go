@@ -3,8 +3,8 @@ package model
 import "time"
 
 type Course struct {
-	ID          string    `db:"id" json:"id"`
-	SquadID     string    `db:"squad_id" json:"squad_id"`
+	ID          int64     `db:"id" json:"id"`
+	SquadID     int64     `db:"squad_id" json:"squad_id"`
 	Year        int       `db:"year" json:"year"`
 	Title       string    `db:"title" json:"title"`
 	Description *string   `db:"description" json:"description,omitempty"`

@@ -3,12 +3,11 @@ package validator
 import (
 	"fmt"
 	"time"
-	"github.com/google/uuid"
 )
 
 // CreateCourseRequest — структура ТОЛЬКО для парсинга JSON (без валидации)
 type CreateCourseRequest struct {
-	SquadID     string    `json:"squad_id"`
+	SquadID     int64     `json:"squad_id"`
 	Year        int       `json:"year"`
 	Title       string    `json:"title"`
 	Description *string   `json:"description"`
@@ -18,7 +17,7 @@ type CreateCourseRequest struct {
 
 // CreateCourseInput — структура ДЛЯ валидации (с тегами)
 type CreateCourseInput struct {
-	SquadID     string    `validate:"required,uuid4"`
+	SquadID     int64     `validate:"required,min=1"`
 	Year        int       `validate:"required,min=2020,max=2100"`
 	Title       string    `validate:"required,min=1,max=255"`
 	Description *string   `validate:"omitempty"`
@@ -32,10 +31,4 @@ func (c *CreateCourseInput) Validate() error {
 		return fmt.Errorf("ends_at must be after starts_at")
 	}
 	return nil
-}
-
-// ValidateSquadID проверяет, что строка — валидный UUID
-func ValidateSquadID(squadID string) error {
-	_, err := uuid.Parse(squadID)
-	return err
 }

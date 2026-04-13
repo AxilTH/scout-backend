@@ -56,6 +56,7 @@ func main() {
 	courseRepo := repository.NewCourseRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
 	assignmentRepo := repository.NewAssignmentRepository(db)
+	activityResultRepo := repository.NewActivityResultRepository(db)
 
 	r.GET("/courses", func(c *gin.Context) { handler.GetCourses(c, courseRepo) })
 	r.GET("/courses/:id", func(c *gin.Context) { handler.GetCourse(c, courseRepo) })
@@ -67,15 +68,21 @@ func main() {
 	r.PUT("/activities/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.UpdateActivity(c, activityRepo) })
 	r.DELETE("/activities/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.DeleteActivity(c, activityRepo) })
 
+	r.POST("/activities/:id/submit", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.SubmitActivity(c, activityResultRepo) })
+
 	r.GET("/assignments", func(c *gin.Context) { handler.GetAssignments(c, assignmentRepo) })
 	r.GET("/assignments/:id", func(c *gin.Context) { handler.GetAssignment(c, assignmentRepo) })
 	r.POST("/assignments", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.CreateAssignment(c, assignmentRepo) })
 	r.PUT("/assignments/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.UpdateAssignment(c, assignmentRepo) })
 	r.DELETE("/assignments/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.DeleteAssignment(c, assignmentRepo) })
 
+	r.GET("/activity-results/:id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.GetActivityResult(c, activityResultRepo) })
+	r.PUT("/activity-results/:id/review", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.ReviewActivityResult(c, activityResultRepo) })
+	r.GET("/courses/:id/results", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.GetCourseResults(c, activityResultRepo) })
+	r.GET("/users/:id/results", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.GetUserResults(c, activityResultRepo) })
+
 	r.GET("/health", handler.HealthCheck)
 
-	// TODO: Запустить HTTP-сервер
 	log.Println("Starting Education Service on :8081")
 	if err := r.Run(":8081"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

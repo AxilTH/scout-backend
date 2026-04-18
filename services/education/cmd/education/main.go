@@ -57,6 +57,7 @@ func main() {
 	activityRepo := repository.NewActivityRepository(db)
 	assignmentRepo := repository.NewAssignmentRepository(db)
 	activityResultRepo := repository.NewActivityResultRepository(db)
+	courseMentorshipRepo := repository.NewCourseMentorshipRepository(db)
 
 	r.GET("/courses", func(c *gin.Context) { handler.GetCourses(c, courseRepo) })
 	r.GET("/courses/:id", func(c *gin.Context) { handler.GetCourse(c, courseRepo) })
@@ -80,6 +81,10 @@ func main() {
 	r.PUT("/activity-results/:id/review", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.ReviewActivityResult(c, activityResultRepo) })
 	r.GET("/courses/:id/results", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.GetCourseResults(c, activityResultRepo) })
 	r.GET("/users/:id/results", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.GetUserResults(c, activityResultRepo) })
+
+	r.GET("/courses/:id/mentors", func(c *gin.Context) { handler.GetCourseMentors(c, courseMentorshipRepo) })
+	r.POST("/courses/:id/mentors", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.AssignMentor(c, courseMentorshipRepo) })
+	r.DELETE("/courses/:id/mentors/:user_id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.RemoveMentor(c, courseMentorshipRepo) })
 
 	r.GET("/health", handler.HealthCheck)
 

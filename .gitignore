@@ -40,8 +40,7 @@ Thumbs.db
 # Docs
 docs/
 
-# AI permissions
-.permissions/
-
 # Generate JWT Script (needed to delete)
 generate_jwt.go
+
+.claude

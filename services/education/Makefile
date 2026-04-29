@@ -9,7 +9,7 @@ build:
 test:
 	go test ./... -v
 
-# Запуск только тестов валидации (курсы + активности)
+# Запуск только тестов валидации
 test-validator:
 	go test ./internal/validator/... -v
 

@@ -1,38 +1,50 @@
+// internal/validator/activity.go
 package validator
 
 import (
-	"fmt"
+	"errors"
 	"time"
 )
 
-// CreateActivityRequest — структура ТОЛЬКО для парсинга JSON (без валидации)
+// CreateActivityRequest — структура только для десериализации JSON
 type CreateActivityRequest struct {
-	CourseID       int64     `json:"course_id"`
-	ActivityTypeID int64     `json:"activity_type_id"`
 	Title          string    `json:"title"`
 	Description    *string   `json:"description"`
 	StartsAt       time.Time `json:"starts_at"`
 	EndsAt         time.Time `json:"ends_at"`
-	MaxScore       *int      `json:"max_score"`
+	MaxScore       int       `json:"max_score"`
 	IsPublished    bool      `json:"is_published"`
+	ActivityTypeID int64     `json:"activity_type_id"`
 }
 
-// CreateActivityInput — структура ДЛЯ валидации (с тегами)
+// CreateActivityInput — структура для структурной валидации (теги `validate`)
 type CreateActivityInput struct {
-	CourseID       int64     `validate:"required,min=1"`
-	ActivityTypeID int64     `validate:"required,min=1"`
 	Title          string    `validate:"required,min=1,max=255"`
 	Description    *string   `validate:"omitempty"`
 	StartsAt       time.Time `validate:"required"`
 	EndsAt         time.Time `validate:"required"`
-	MaxScore       *int      `validate:"omitempty,min=0"`
+	MaxScore       int       `validate:"min=0"`
 	IsPublished    bool      `validate:"-"`
+	CourseID       int64     `validate:"required,min=1"`
+	ActivityTypeID int64     `validate:"required,min=1"`
 }
 
-// Validate выполняет кастомную бизнес-валидацию
-func (c *CreateActivityInput) Validate() error {
-	if !c.EndsAt.After(c.StartsAt) {
-		return fmt.Errorf("ends_at must be after starts_at")
+// Validate выполняет бизнес-валидацию и возвращает ВСЕ ошибки.
+func (c *CreateActivityInput) Validate() ValidationErrors {
+	var errs ValidationErrors
+
+	// 1. Проверка временных зон
+	if c.StartsAt.Location() != time.UTC {
+		errs = append(errs, errors.New("starts at must be in UTC"))
 	}
-	return nil
+	if c.EndsAt.Location() != time.UTC {
+		errs = append(errs, errors.New("ends at must be in UTC"))
+	}
+
+	// 2. Логические отношения
+	if !c.EndsAt.After(c.StartsAt) {
+		errs = append(errs, errors.New("ends at must be after starts at"))
+	}
+
+	return errs
 }

@@ -1,3 +1,4 @@
+-- migrations/000005_create_assignments.up.sql
 CREATE TABLE assignments (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     activity_id BIGINT REFERENCES activities(id) ON DELETE SET NULL,

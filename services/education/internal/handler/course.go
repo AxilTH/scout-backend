@@ -1,9 +1,9 @@
+// internal/handler/course.go
 package handler
 
 import (
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/AxilTH/scout-backend/services/education/internal/model"
 	"github.com/AxilTH/scout-backend/services/education/internal/repository"
@@ -11,99 +11,220 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GetCourses возвращает все курсы, принадлежащие указанному отряду
 func GetCourses(c *gin.Context, repo *repository.CourseRepository) {
-	squadIDStr := c.Query("squad_id")
-	if squadIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "squad_id query parameter is required"})
+	// Извлекаем squad_id из контекста с использованием helper-функции
+	squadID, err := getSquadIDFromContext(c)
+	if err != nil {
+		log.Printf("Error getting squad_id from context: %v", err)
+		respondWithInternalError(c, "Failed to get squad information")
 		return
 	}
 
-	squadID, err := strconv.ParseInt(squadIDStr, 10, 64)
+	courses, err := repo.GetAll(squadID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid squad_id format"})
+		log.Printf("Database error in GetCourses: %v", err)
+		respondWithInternalError(c, "Failed to fetch courses")
 		return
 	}
 
-	courses, err := repo.ListBySquad(squadID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	c.JSON(http.StatusOK, courses)
+	respondWithSuccess(c, http.StatusOK, courses)
 }
 
+// GetCourse возвращает курс по ID, только если он принадлежит отряду пользователя
 func GetCourse(c *gin.Context, repo *repository.CourseRepository) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	// Извлекаем squad_id из контекста
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid course ID format"})
+		log.Printf("Error getting squad_id from context: %v", err)
+		respondWithInternalError(c, "Failed to get squad information")
 		return
 	}
 
-	course, err := repo.GetByID(id)
+	// Парсим id курса из пути с использованием helper-функции
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		respondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Запрос в репозиторий с проверкой принадлежности к отряду
+	course, err := repo.GetByID(id, squadID)
+	if err != nil {
+		log.Printf("Database error in GetCourse: %v", err)
+		respondWithInternalError(c, "Failed to fetch course")
+		return
+	}
+
+	// Курс не найден ИЛИ не принадлежит отряду
 	if course == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Course not found"})
+		respondWithNotFound(c)
 		return
 	}
-	c.JSON(http.StatusOK, course)
+
+	respondWithSuccess(c, http.StatusOK, course)
 }
 
+// CreateCourse создает новый курс для отряда, к которому принадлежит пользователь
 func CreateCourse(c *gin.Context, repo *repository.CourseRepository) {
-	// Получаем user_id из контекста
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Authentication middleware not configured"})
+	// 1. Извлекаем squad_id из контекста
+	squadID, err := getSquadIDFromContext(c)
+	if err != nil {
+		log.Printf("Error getting squad_id from context: %v", err)
+		respondWithInternalError(c, "Failed to get squad information")
 		return
 	}
-	log.Printf("User %s is creating a course", userID)
 
-	// Парсим JSON в Request
+	// 2. Парсим тело запроса в Request (только для десериализации)
 	var req validator.CreateCourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON format"})
+		respondWithError(c, http.StatusBadRequest, "Invalid JSON format")
 		return
 	}
 
-	// Преобразуем в Input
+	// 3. Преобразуем в Input для валидации
 	input := validator.CreateCourseInput{
-		SquadID:     req.SquadID,
-		Year:        req.Year,
 		Title:       req.Title,
 		Description: req.Description,
 		StartsAt:    req.StartsAt,
 		EndsAt:      req.EndsAt,
+		Year:        req.Year,
+		SquadID:     squadID, // берем из контекста
 	}
 
-	// Структурная валидация
-	if err := validate.Struct(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": validator.FormatError(err)})
+	// 4. Структурная валидация (теги validate)
+	structErrs := validator.ValidateStruct(&input)
+
+	// 5. Бизнес-валидация (логика предметной области)
+	bizErrs := input.Validate()
+
+	// 6. Объединяем и проверяем ошибки
+	allErrs := append(structErrs, bizErrs...)
+	if len(allErrs) > 0 {
+		respondWithValidationError(c, allErrs.ToHumanReadable())
 		return
 	}
 
-	// Бизнес-валидация
-	if err := input.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Создаем модель и сохраняем в БД
+	// 7. Создаём модель курса
 	course := &model.Course{
-		SquadID:     input.SquadID,
-		Year:        input.Year,
 		Title:       input.Title,
 		Description: input.Description,
 		StartsAt:    input.StartsAt,
 		EndsAt:      input.EndsAt,
+		Year:        input.Year,
+		IsActive:    true, // по умолчанию новый курс активен
+		SquadID:     input.SquadID,
+		// CreatedAt/UpdatedAt будут установлены в репозитории
 	}
 
+	// 8. Сохраняем в БД
 	if err := repo.Create(course); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create course"})
+		log.Printf("Failed to create course: %v", err)
+		respondWithInternalError(c, "Failed to create course")
 		return
 	}
 
-	c.JSON(http.StatusCreated, course)
+	respondWithCreated(c, course)
+}
+
+// UpdateCourse обновляет существующий курс (только если он принадлежит отряду)
+func UpdateCourse(c *gin.Context, repo *repository.CourseRepository) {
+	// Извлекаем squad_id из контекста
+	squadID, err := getSquadIDFromContext(c)
+	if err != nil {
+		log.Printf("Error getting squad_id from context: %v", err)
+		respondWithInternalError(c, "Failed to get squad information")
+		return
+	}
+
+	// Парсим id курса из пути
+	id, err := parseIDParam(c, "id")
+	if err != nil {
+		respondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Парсим тело запроса
+	var req validator.CreateCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondWithError(c, http.StatusBadRequest, "Invalid JSON format")
+		return
+	}
+
+	// Преобразуем в Input для валидации
+	input := validator.CreateCourseInput{
+		Title:       req.Title,
+		Description: req.Description,
+		StartsAt:    req.StartsAt,
+		EndsAt:      req.EndsAt,
+		Year:        req.Year,
+		SquadID:     squadID,
+	}
+
+	// Структурная валидация
+	structErrs := validator.ValidateStruct(&input)
+	bizErrs := input.Validate()
+	allErrs := append(structErrs, bizErrs...)
+	if len(allErrs) > 0 {
+		respondWithValidationError(c, allErrs.ToHumanReadable())
+		return
+	}
+
+	// Проверяем, что курс существует и принадлежит отряду
+	existing, err := repo.GetByID(id, squadID)
+	if err != nil {
+		log.Printf("Database error in UpdateCourse (get): %v", err)
+		respondWithInternalError(c, "Failed to update course")
+		return
+	}
+	if existing == nil {
+		respondWithNotFound(c)
+		return
+	}
+
+	// Обновляем модель
+	updated := &model.Course{
+		ID:          id,
+		Title:       input.Title,
+		Description: input.Description,
+		StartsAt:    input.StartsAt,
+		EndsAt:      input.EndsAt,
+		Year:        input.Year,
+		IsActive:    existing.IsActive, // не меняем статус здесь (отдельный эндпоинт)
+		SquadID:     input.SquadID,     // не даем изменить принадлежность
+	}
+
+	if err := repo.Update(updated); err != nil {
+		log.Printf("Failed to update course: %v", err)
+		respondWithInternalError(c, "Failed to update course")
+		return
+	}
+
+	respondWithSuccess(c, http.StatusOK, updated)
+}
+
+// DeleteCourse удаляет курс (только если он принадлежит отряду)
+func DeleteCourse(c *gin.Context, repo *repository.CourseRepository) {
+	// Извлекаем squad_id из контекста
+	squadID, err := getSquadIDFromContext(c)
+	if err != nil {
+		log.Printf("Error getting squad_id from context: %v", err)
+		respondWithInternalError(c, "Failed to get squad information")
+		return
+	}
+
+	// Парсим id курса из пути
+	id, err := parseIDParam(c, "id")
+	if err != nil {
+		respondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := repo.Delete(id, squadID); err != nil {
+		log.Printf("Failed to delete course: %v", err)
+		respondWithInternalError(c, "Failed to delete course")
+		return
+	}
+
+	respondWithNoContent(c)
 }

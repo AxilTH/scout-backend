@@ -1,3 +1,4 @@
+// internal/validator/validator.go
 package validator
 
 import (
@@ -6,51 +7,85 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// validate — глобальный экземпляр валидатора (синглтон)
-var validate = validator.New()
+// ValidationErrors представляет список ошибок валидации
+type ValidationErrors []error
 
-// GetValidator возвращает экземпляр валидатора
-func GetValidator() *validator.Validate {
-	return validate
+// Error реализует интерфейс error (возвращает первую ошибку)
+func (ve ValidationErrors) Error() string {
+	if len(ve) == 0 {
+		return ""
+	}
+	return ve[0].Error()
 }
 
-// FormatError преобразует ошибки валидации в человекочитаемые сообщения
-func FormatError(err error) string {
-	if errs, ok := err.(validator.ValidationErrors); ok {
-		for _, e := range errs {
-			field := e.Field()
-			switch e.Tag() {
+// Глобальный экземпляр структурного валидатора
+var validate = validator.New()
+
+// toHumanField преобразует имя поля Go в человекочитаемую форму.
+func toHumanField(field string) string {
+	switch field {
+	case "SquadID":
+		return "squad ID"
+	case "CourseID":
+		return "course ID"
+	case "ActivityTypeID":
+		return "activity type ID"
+	case "AssignmentTypeID":
+		return "assignment type ID"
+	case "Title":
+		return "title"
+	case "Year":
+		return "year"
+	case "StartsAt":
+		return "starts at"
+	case "EndsAt":
+		return "ends at"
+	case "Deadline":
+		return "deadline"
+	case "MaxScore":
+		return "max score"
+	default:
+		// fallback: lowercase first letter (простой вариант)
+		if len(field) == 0 {
+			return field
+		}
+		return string(field[0]|32) + field[1:] // 'A' → 'a'
+	}
+}
+
+// ToHumanReadable возвращает все ошибки в виде человекочитаемых строк
+func (ve ValidationErrors) ToHumanReadable() []string {
+	messages := make([]string, len(ve))
+	for i, err := range ve {
+		messages[i] = err.Error()
+	}
+	return messages
+}
+
+// ValidateStruct выполняет структурную валидацию (по тегам `validate:"..."`)
+// и возвращает все найденные ошибки.
+func ValidateStruct(v interface{}) ValidationErrors {
+	err := validate.Struct(v)
+	if err == nil {
+		return nil
+	}
+
+	var errs ValidationErrors
+	if validationErrs, ok := err.(validator.ValidationErrors); ok {
+		for _, fieldErr := range validationErrs {
+			fieldName := toHumanField(fieldErr.Field())
+			tag := fieldErr.Tag()
+			switch tag {
 			case "required":
-				if field == "Title" {
-					return "Title must not be empty"
-				}
-				return fmt.Sprintf("%s is required", field)
-			case "min":
-				if field == "Year" {
-					return "Year out of range"
-				}
-				if field == "Title" {
-					return "Title must not be empty"
-				}
-				if field == "SquadID" {
-					return "SquadID is required"
-				}
-				if field == "CourseID" {
-					return "CourseID is required"
-				}
-				if field == "ActivityTypeID" {
-					return "ActivityTypeID is required"
-				}
-				return fmt.Sprintf("%s is too small", field)
-			case "max":
-				if field == "Year" {
-					return "Year out of range"
-				}
-				return fmt.Sprintf("%s is too large", field)
+				errs = append(errs, fmt.Errorf("%s is required", fieldName))
+			case "min", "max":
+				errs = append(errs, fmt.Errorf("%s is out of range", fieldName))
 			default:
-				return fmt.Sprintf("Invalid value for %s", field)
+				errs = append(errs, fmt.Errorf("invalid value for %s", fieldName))
 			}
 		}
+	} else {
+		errs = append(errs, err)
 	}
-	return "Invalid input data"
+	return errs
 }

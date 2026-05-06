@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AxilTH/scout-backend/services/squad/internal/handler"
 	"github.com/AxilTH/scout-backend/services/squad/internal/middleware"
 	"github.com/AxilTH/scout-backend/services/squad/internal/repository"
 	"github.com/gin-gonic/gin"
@@ -104,8 +103,7 @@ func main() {
 	r.Use(middleware.RequestLoggerMiddleware(middleware.DefaultLoggingConfig()))
 
 	// 5. Настройка маршрутов
-	r.GET("/health", handler.HealthCheck)
-	r.HEAD("/health", handler.HealthCheck)
+	setupRoutes(r, db)
 
 	// 6. Graceful shutdown
 	srv := &http.Server{

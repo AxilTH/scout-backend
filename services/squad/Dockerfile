@@ -18,7 +18,7 @@ RUN go mod download
 COPY . .
 
 # Собираем приложение
-RUN go build -ldflags="-s -w" -o squad-service ./cmd/squad/main.go
+RUN go build -ldflags="-s -w" -o squad-service ./cmd/squad/
 
 # Финальный образ
 FROM alpine:latest

@@ -28,6 +28,7 @@ type config struct {
 	DBPassword  string
 	DBName      string
 	ServicePort string
+	JWTSecret   string
 }
 
 func loadConfig() (*config, error) {
@@ -43,6 +44,7 @@ func loadConfig() (*config, error) {
 		"DB_USER":     &cfg.DBUser,
 		"DB_PASSWORD": &cfg.DBPassword,
 		"DB_NAME":     &cfg.DBName,
+		"JWT_SECRET":  &cfg.JWTSecret,
 	}
 
 	var missing []string
@@ -103,7 +105,7 @@ func main() {
 	r.Use(middleware.RequestLoggerMiddleware(middleware.DefaultLoggingConfig()))
 
 	// 5. Настройка маршрутов
-	setupRoutes(r, db)
+	setupRoutes(r, db, cfg.JWTSecret)
 
 	// 6. Graceful shutdown
 	srv := &http.Server{

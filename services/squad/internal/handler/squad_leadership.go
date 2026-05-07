@@ -7,21 +7,9 @@ import (
 	"time"
 
 	"github.com/AxilTH/scout-backend/services/squad/internal/model"
+	"github.com/AxilTH/scout-backend/services/squad/internal/validator"
 	"github.com/gin-gonic/gin"
 )
-
-// AssignPositionRequest представляет запрос на назначение должности
-type AssignPositionRequest struct {
-	UserID     int64 `json:"user_id" binding:"required"`
-	SquadID    int64 `json:"squad_id" binding:"required"`
-	PositionID int64 `json:"position_id" binding:"required"`
-}
-
-// UpdateLeadershipPositionRequest представляет запрос на обновление должности
-type UpdateLeadershipPositionRequest struct {
-	PositionID  int64  `json:"position_id" binding:"required"`
-	DismissedAt *int64 `json:"dismissed_at,omitempty"` // timestamp
-}
 
 // GetSquadLeadership возвращает командный состав отряда с пагинацией
 // GET /squads/:id/leadership
@@ -80,9 +68,30 @@ func (h *Handler) AssignPosition(c *gin.Context) {
 		return
 	}
 
-	var req AssignPositionRequest
+	// 1. Парсим тело запроса в Request (только для десериализации)
+	var req validator.AssignPositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		RespondValidationError(c, "Invalid request body: "+err.Error())
+		RespondValidationError(c, "Invalid JSON format")
+		return
+	}
+
+	// 2. Преобразуем в Input для валидации
+	input := validator.AssignPositionInput{
+		UserID:     req.UserID,
+		SquadID:    squadID, // берем из пути
+		PositionID: req.PositionID,
+	}
+
+	// 3. Структурная валидация (теги validate)
+	structErrs := validator.ValidateStruct(&input)
+
+	// 4. Бизнес-валидация (логика предметной области)
+	bizErrs := input.Validate()
+
+	// 5. Объединяем и проверяем ошибки
+	allErrs := append(structErrs, bizErrs...)
+	if len(allErrs) > 0 {
+		RespondValidationErrors(c, allErrs.ToHumanReadable())
 		return
 	}
 
@@ -114,15 +123,29 @@ func (h *Handler) AssignPosition(c *gin.Context) {
 	}
 
 	isMember := false
+	var userRoleID int64
 	for _, membership := range memberships {
 		if membership.UserID == req.UserID && membership.IsActive {
 			isMember = true
+			userRoleID = membership.RoleID
 			break
 		}
 	}
 
 	if !isMember {
 		RespondValidationError(c, "User is not an active member of this squad")
+		return
+	}
+
+	// Бизнес-правило: все члены командного состава должны быть fighter
+	fighterRole, err := h.roleRepo.GetByTitle(c.Request.Context(), "fighter")
+	if err != nil {
+		RespondInternalError(c, "Failed to get fighter role: "+err.Error())
+		return
+	}
+
+	if userRoleID != fighterRole.ID {
+		RespondValidationError(c, "Only fighters can be assigned to leadership positions")
 		return
 	}
 
@@ -171,9 +194,29 @@ func (h *Handler) UpdateLeadershipPosition(c *gin.Context) {
 		return
 	}
 
-	var req UpdateLeadershipPositionRequest
+	// 1. Парсим тело запроса в Request (только для десериализации)
+	var req validator.UpdateLeadershipPositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		RespondValidationError(c, "Invalid request body: "+err.Error())
+		RespondValidationError(c, "Invalid JSON format")
+		return
+	}
+
+	// 2. Преобразуем в Input для валидации
+	input := validator.UpdateLeadershipPositionInput{
+		PositionID:  req.PositionID,
+		DismissedAt: req.DismissedAt,
+	}
+
+	// 3. Структурная валидация (теги validate)
+	structErrs := validator.ValidateStruct(&input)
+
+	// 4. Бизнес-валидация (логика предметной области)
+	bizErrs := input.Validate()
+
+	// 5. Объединяем и проверяем ошибки
+	allErrs := append(structErrs, bizErrs...)
+	if len(allErrs) > 0 {
+		RespondValidationErrors(c, allErrs.ToHumanReadable())
 		return
 	}
 

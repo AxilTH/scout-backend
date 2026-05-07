@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/AxilTH/scout-backend/services/squad/internal/model"
+	"github.com/AxilTH/scout-backend/services/squad/internal/validator"
 	"github.com/gin-gonic/gin"
 )
 
@@ -86,9 +87,30 @@ func (h *Handler) AddMembership(c *gin.Context) {
 		return
 	}
 
-	var req AddMembershipRequest
+	// 1. Парсим тело запроса в Request (только для десериализации)
+	var req validator.AddMembershipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		RespondValidationError(c, "Invalid request body: "+err.Error())
+		RespondValidationError(c, "Invalid JSON format")
+		return
+	}
+
+	// 2. Преобразуем в Input для валидации
+	input := validator.AddMembershipInput{
+		UserID:  req.UserID,
+		SquadID: squadID, // берем из пути
+		RoleID:  req.RoleID,
+	}
+
+	// 3. Структурная валидация (теги validate)
+	structErrs := validator.ValidateStruct(&input)
+
+	// 4. Бизнес-валидация (логика предметной области)
+	bizErrs := input.Validate()
+
+	// 5. Объединяем и проверяем ошибки
+	allErrs := append(structErrs, bizErrs...)
+	if len(allErrs) > 0 {
+		RespondValidationErrors(c, allErrs.ToHumanReadable())
 		return
 	}
 
@@ -200,9 +222,30 @@ func (h *Handler) UpdateMembership(c *gin.Context) {
 		return
 	}
 
-	var req UpdateMembershipRequest
+	// 1. Парсим тело запроса в Request (только для десериализации)
+	var req validator.UpdateMembershipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		RespondValidationError(c, "Invalid request body: "+err.Error())
+		RespondValidationError(c, "Invalid JSON format")
+		return
+	}
+
+	// 2. Преобразуем в Input для валидации
+	input := validator.UpdateMembershipInput{
+		RoleID:   req.RoleID,
+		IsActive: req.IsActive,
+		LeftAt:   req.LeftAt,
+	}
+
+	// 3. Структурная валидация (теги validate)
+	structErrs := validator.ValidateStruct(&input)
+
+	// 4. Бизнес-валидация (логика предметной области)
+	bizErrs := input.Validate()
+
+	// 5. Объединяем и проверяем ошибки
+	allErrs := append(structErrs, bizErrs...)
+	if len(allErrs) > 0 {
+		RespondValidationErrors(c, allErrs.ToHumanReadable())
 		return
 	}
 

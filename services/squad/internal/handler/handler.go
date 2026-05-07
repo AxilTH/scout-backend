@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -91,8 +92,26 @@ func RespondError(c *gin.Context, statusCode int, message string) {
 }
 
 // RespondValidationError отправляет ответ с ошибкой валидации
-func RespondValidationError(c *gin.Context, message string) {
-	RespondError(c, http.StatusBadRequest, message)
+func RespondValidationError(c *gin.Context, message interface{}) {
+	switch v := message.(type) {
+	case string:
+		RespondError(c, http.StatusBadRequest, v)
+	case []string:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"errors":  v,
+		})
+	default:
+		RespondError(c, http.StatusBadRequest, fmt.Sprintf("%v", v))
+	}
+}
+
+// RespondValidationErrors отправляет несколько ошибок валидации
+func RespondValidationErrors(c *gin.Context, errors []string) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		"success": false,
+		"errors":  errors,
+	})
 }
 
 // RespondNotFound отправляет ответ "не найдено"

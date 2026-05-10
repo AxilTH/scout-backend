@@ -4,6 +4,8 @@
 *.dll
 *.so
 *.dylib
+squad-service
+education-service
 
 # Build artifacts
 __debug_bin

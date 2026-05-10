@@ -19,6 +19,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 )
 
 // config хранит конфигурацию сервиса
@@ -37,8 +38,8 @@ func loadConfig() (*config, error) {
 	cfg := &config{
 		// Только инфраструктурные параметры
 		DBHost:      getEnv("DB_HOST", "postgresql"),
-		DBPort:      getEnv("DB_PORT", "5432"),      
-		ServicePort: getEnv("SERVICE_PORT", "8081"),
+		DBPort:      getEnv("DB_PORT", "5432"),
+		ServicePort: getEnv("EDUCATION_SERVICE_PORT", "8081"),
 	}
 
 	// Критичные переменные - обязательны к установке
@@ -67,6 +68,18 @@ func loadConfig() (*config, error) {
 }
 
 func main() {
+	// 0. Загрузка .env файлов (только локально)
+	if _, err := os.Stat("../../../.env"); err == nil {
+		if err := godotenv.Load("../../../.env"); err != nil {
+			log.Println("Warning: Root .env file not found, using system environment variables")
+		}
+	}
+	if _, err := os.Stat("../../.env"); err == nil {
+		if err := godotenv.Load("../../.env"); err != nil {
+			log.Println("Warning: Service-specific .env file not found, using system environment variables")
+		}
+	}
+
 	// 1. Загрузка конфигурации
 	cfg, err := loadConfig()
 	if err != nil {
@@ -174,6 +187,7 @@ func main() {
 	// r.DELETE("/courses/:id/mentors/:user_id", middleware.AuthMiddleware(jwtSecret), func(c *gin.Context) { handler.RemoveMentor(c, courseMentorshipRepo) })
 
 	r.GET("/health", handler.HealthCheck)
+	r.HEAD("/health", handler.HealthCheck)
 
 	// 7. Graceful shutdown
 	srv := &http.Server{

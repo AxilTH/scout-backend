@@ -1,72 +1,344 @@
 services:
-  # -------------------------------------------------
-  # PostgreSQL — база данных
-  # -------------------------------------------------
-  postgresql:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-
-  # -------------------------------------------------
-  # MinIO — файловое хранилище
-  # -------------------------------------------------
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "9001:9001"  # Веб-интерфейс MinIO
-    volumes:
-      - minio_data:/data
-
-  # -------------------------------------------------
-  # Education Service — микросервис на Go
-  # -------------------------------------------------
+  # ============================================================
+  # Education Service
+  # ============================================================
   education-service:
-    build: ./services/education
+    build:
+      context: ./services/education
+      dockerfile: Dockerfile
+    container_name: scout-education
     environment:
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      DB_HOST: postgresql
-      DB_PORT: "5432"
-      MINIO_HOST: minio
-      MINIO_PORT: "9000"
-      JWT_SECRET: ${JWT_SECRET}
+      # Общие переменные (из корневого .env)
+      - DB_HOST=postgres_education
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      # Сервис-специфичные переменные
+      - DB_NAME=scout_education
+      - EDUCATION_SERVICE_PORT=8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres_education:
+        condition: service_healthy
+    networks:
+      - scout-network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/health"]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 10s
-    restart: on-failure
 
-  # -------------------------------------------------
-  # Nginx — API Gateway и фронтенд
-  # -------------------------------------------------
-  nginx:
-    image: nginx:alpine
+  # ============================================================
+  # Squad & Membership Service
+  # ============================================================
+  squad-service:
+    build:
+      context: ./services/squad
+      dockerfile: Dockerfile
+    container_name: scout-squad
+    environment:
+      # Общие переменные (из корневого .env)
+      - DB_HOST=postgres_squad
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      # Сервис-специфичные переменные
+      - DB_NAME=scout_squad
+      - SQUAD_SERVICE_PORT=8082
     ports:
-      - "80:80"
-    volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ../scout-frontend/dist:/usr/share/nginx/html
+      - "8082:8082"
     depends_on:
-      education-service:
+      postgres_squad:
         condition: service_healthy
-    restart: "no"
+    networks:
+      - scout-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
-# -------------------------------------------------
-# Именованные тома для хранения данных
-# -------------------------------------------------
+  # ============================================================
+  # Auth & Identity Service (пока не реализован)
+  # ============================================================
+  # auth-service:
+  #   build:
+  #     context: ./services/auth
+  #     dockerfile: Dockerfile
+  #   container_name: scout-auth
+  #   environment:
+  #     # Общие переменные (из корневого .env)
+  #     - DB_HOST=postgres_auth
+  #     - DB_PORT=5432
+  #     - DB_USER=${DB_USER}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     - JWT_SECRET=${JWT_SECRET}
+  #     # Сервис-специфичные переменные
+  #     - DB_NAME=scout_auth
+  #     - AUTH_SERVICE_PORT=8083
+  #   ports:
+  #     - "8083:8083"
+  #   depends_on:
+  #     postgres_auth:
+  #       condition: service_healthy
+  #   networks:
+  #     - scout-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/health"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+  #     start_period: 10s
+
+  # ============================================================
+  # Tracking Service (пока не реализован)
+  # ============================================================
+  # tracking-service:
+  #   build:
+  #     context: ./services/tracking
+  #     dockerfile: Dockerfile
+  #   container_name: scout-tracking
+  #   environment:
+  #     # Общие переменные (из корневого .env)
+  #     - DB_HOST=postgres_tracking
+  #     - DB_PORT=5432
+  #     - DB_USER=${DB_USER}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     # Сервис-специфичные переменные
+  #     - DB_NAME=scout_tracking
+  #     - TRACKING_SERVICE_PORT=8084
+  #   ports:
+  #     - "8084:8084"
+  #   depends_on:
+  #     postgres_tracking:
+  #       condition: service_healthy
+  #   networks:
+  #     - scout-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/health"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+  #     start_period: 10s
+
+  # ============================================================
+  # File Storage Service (пока не реализован)
+  # ============================================================
+  # file-storage-service:
+  #   build:
+  #     context: ./services/file-storage
+  #     dockerfile: Dockerfile
+  #   container_name: scout-file-storage
+  #   environment:
+  #     # Общие переменные (из корневого .env)
+  #     - DB_HOST=postgres_files
+  #     - DB_PORT=5432
+  #     - DB_USER=${DB_USER}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+  #     - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+  #     # Сервис-специфичные переменные
+  #     - DB_NAME=scout_files
+  #     - FILE_STORAGE_SERVICE_PORT=8085
+  #     - MINIO_HOST=minio
+  #     - MINIO_PORT=9000
+  #   ports:
+  #     - "8085:8085"
+  #   depends_on:
+  #     postgres_files:
+  #       condition: service_healthy
+  #     minio:
+  #       condition: service_healthy
+  #   networks:
+  #     - scout-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/health"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+  #     start_period: 10s
+
+  # ============================================================
+  # PostgreSQL для Education Service
+  # ============================================================
+  postgres_education:
+    image: postgres:17-alpine
+    container_name: scout-postgres-education
+    environment:
+      - POSTGRES_DB=scout_education
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_education_data:/var/lib/postgresql/data
+    networks:
+      - scout-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # PostgreSQL для Squad Service
+  # ============================================================
+  postgres_squad:
+    image: postgres:17-alpine
+    container_name: scout-postgres-squad
+    environment:
+      - POSTGRES_DB=scout_squad
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_squad_data:/var/lib/postgresql/data
+    networks:
+      - scout-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # PostgreSQL для Auth Service (пока не используется)
+  # ============================================================
+  # postgres_auth:
+  #   image: postgres:17-alpine
+  #   container_name: scout-postgres-auth
+  #   environment:
+  #     - POSTGRES_DB=scout_auth
+  #     - POSTGRES_USER=${DB_USER}
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD}
+  #   ports:
+  #     - "5435:5432"
+  #   volumes:
+  #     - postgres_auth_data:/var/lib/postgresql
+  #   networks:
+  #     - scout-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+
+  # ============================================================
+  # PostgreSQL для Tracking Service (пока не используется)
+  # ============================================================
+  # postgres_tracking:
+  #   image: postgres:17-alpine
+  #   container_name: scout-postgres-tracking
+  #   environment:
+  #     - POSTGRES_DB=scout_tracking
+  #     - POSTGRES_USER=${DB_USER}
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD}
+  #   ports:
+  #     - "5436:5432"
+  #   volumes:
+  #     - postgres_tracking_data:/var/lib/postgresql
+  #   networks:
+  #     - scout-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+
+  # ============================================================
+  # PostgreSQL для File Storage Service (пока не используется)
+  # ============================================================
+  # postgres_files:
+  #   image: postgres:17-alpine
+  #   container_name: scout-postgres-files
+  #   environment:
+  #     - POSTGRES_DB=scout_files
+  #     - POSTGRES_USER=${DB_USER}
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD}
+  #   ports:
+  #     - "5437:5432"
+  #   volumes:
+  #     - postgres_files_data:/var/lib/postgresql
+  #   networks:
+  #     - scout-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+
+  # ============================================================
+  # MinIO — файловое хранилище (пока не используется)
+  # ============================================================
+  # minio:
+  #   image: minio/minio
+  #   command: server /data --console-address ":9001"
+  #   container_name: scout-minio
+  #   environment:
+  #     - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+  #     - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+  #   ports:
+  #     - "9000:9000"  # API
+  #     - "9001:9001"  # Web UI
+  #   volumes:
+  #     - minio_data:/data
+  #   networks:
+  #     - scout-network
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+
+  # ============================================================
+  # Nginx — API Gateway (пока не настроен)
+  # ============================================================
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: scout-nginx
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - education-service
+  #     - squad-service
+  #     - auth-service
+  #   networks:
+  #     - scout-network
+  #   restart: unless-stopped
+
+# ============================================================
+# Сети
+# ============================================================
+networks:
+  scout-network:
+    driver: bridge
+
+# ============================================================
+# Тома для хранения данных
+# ============================================================
 volumes:
-  pg_data:   
-  minio_data: 
+  postgres_education_data:
+  postgres_squad_data:
+  # postgres_auth_data:
+  # postgres_tracking_data:
+  # postgres_files_data:
+  # minio_data:

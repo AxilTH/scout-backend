@@ -18,13 +18,13 @@ RUN go mod download
 COPY . .
 
 # Собираем приложение
-RUN go build -ldflags="-s -w" -o education-service ./cmd/education
+RUN go build -ldflags="-s -w" -o squad-service ./cmd/squad/
 
 # Финальный образ
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
-COPY --from=builder /app/education-service .
+COPY --from=builder /app/squad-service .
 COPY --from=builder /app/migrations ./migrations
-RUN chmod +x education-service
-CMD ["./education-service"]
+RUN chmod +x squad-service
+CMD ["./squad-service"]

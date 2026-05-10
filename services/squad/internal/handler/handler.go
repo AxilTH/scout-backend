@@ -128,3 +128,51 @@ func RespondInternalError(c *gin.Context, message string) {
 func GetCurrentTime() time.Time {
 	return time.Now().UTC()
 }
+
+// getSquadIDFromContext извлекает squad_id из контекста Gin
+// Возвращает ошибку, если squad_id отсутствует или имеет неверный тип
+func getSquadIDFromContext(c *gin.Context) (int64, error) {
+	squadID, ok := c.Get("squad_id")
+	if !ok {
+		return 0, fmt.Errorf("squad_id not found in context")
+	}
+
+	squadIDInt, ok := squadID.(int64)
+	if !ok {
+		return 0, fmt.Errorf("squad_id has invalid type")
+	}
+
+	return squadIDInt, nil
+}
+
+// getUserIDFromContext извлекает user_id из контекста Gin
+// Возвращает ошибку, если user_id отсутствует или имеет неверный тип
+func getUserIDFromContext(c *gin.Context) (int64, error) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		return 0, fmt.Errorf("user_id not found in context")
+	}
+
+	userIDInt, ok := userID.(int64)
+	if !ok {
+		return 0, fmt.Errorf("user_id has invalid type")
+	}
+
+	return userIDInt, nil
+}
+
+// parseIDParam парсит параметр ID из URL пути
+// paramName - имя параметра (например, "id", "course_id", "activity_id")
+func parseIDParam(c *gin.Context, paramName string) (int64, error) {
+	idStr := c.Param(paramName)
+	if idStr == "" {
+		return 0, fmt.Errorf("%s parameter is required", paramName)
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s format", paramName)
+	}
+
+	return id, nil
+}

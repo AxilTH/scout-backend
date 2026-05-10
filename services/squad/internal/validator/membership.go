@@ -7,9 +7,8 @@ import (
 
 // AddMembershipRequest — структура только для десериализации JSON
 type AddMembershipRequest struct {
-	UserID  int64 `json:"user_id"`
-	SquadID int64 `json:"squad_id"`
-	RoleID  int64 `json:"role_id"`
+	UserID int64 `json:"user_id"`
+	RoleID int64 `json:"role_id"`
 }
 
 // AddMembershipInput — структура для структурной валидации (теги `validate`)

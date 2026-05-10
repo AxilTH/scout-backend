@@ -3,7 +3,6 @@ package middleware
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/AxilTH/scout-backend/services/squad/internal/repository"
 	"github.com/gin-gonic/gin"
@@ -11,7 +10,7 @@ import (
 
 // CommanderOnly middleware — пропускает только пользователей с должностью "commander" в указанном отряде.
 // Должен использоваться после AuthRequired.
-// squad_id извлекается из параметра пути :id.
+// squad_id извлекается из контекста (JWT токена).
 func CommanderOnly(
 	squadLeadershipRepo repository.SquadLeadershipRepository,
 	positionRepo repository.PositionRepository,
@@ -27,13 +26,12 @@ func CommanderOnly(
 			return
 		}
 
-		// Извлекаем squad_id из пути
-		squadIDStr := c.Param("id")
-		squadID, err := strconv.ParseInt(squadIDStr, 10, 64)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+		// Извлекаем squad_id из контекста
+		squadID, ok := GetSquadID(c)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"error":   "Invalid squad ID",
+				"error":   "Squad ID not found in context",
 			})
 			return
 		}

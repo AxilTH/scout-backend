@@ -13,4 +13,7 @@ type SquadLeadershipRepository interface {
 
 	GetByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.SquadLeadership, error)
 	GetBySquadID(ctx context.Context, squadID int64, limit, offset int) ([]*model.SquadLeadership, error)
+	GetByIDAndSquadID(ctx context.Context, id, squadID int64) (*model.SquadLeadership, error)
+	UpdateAndSquadID(ctx context.Context, entity *model.SquadLeadership, squadID int64) error
+	DeleteAndSquadID(ctx context.Context, id, squadID int64) error
 }

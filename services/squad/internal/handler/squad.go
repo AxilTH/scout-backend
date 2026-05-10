@@ -68,79 +68,49 @@ func (h *Handler) CreateSquad(c *gin.Context) {
 	RespondSuccess(c, http.StatusCreated, squad)
 }
 
-// GetSquad возвращает отряд по ID.
-// Fighter видит только свои отряды, admin — все.
-// GET /squads/:id
-func (h *Handler) GetSquad(c *gin.Context) {
-	id, err := GetIDFromPath(c)
+// GetCurrentSquad возвращает текущий отряд пользователя.
+// Fighter видит только свой текущий отряд, admin — все отряды.
+// GET /squads/current
+func (h *Handler) GetCurrentSquad(c *gin.Context) {
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
-	squad, err := h.squadRepo.GetByID(c.Request.Context(), id)
+	// Проверяем, что отряд существует
+	squad, err := h.squadRepo.GetByID(c.Request.Context(), squadID)
 	if err != nil {
 		RespondNotFound(c, "Squad not found")
 		return
-	}
-
-	// Fighter видит только свои отряды
-	role, _ := middleware.GetUserRole(c)
-	userID, _ := middleware.GetUserID(c)
-	if role == "fighter" {
-		membership, err := h.squadMembershipRepo.GetBySquadID(c.Request.Context(), id, 1, 0)
-		if err != nil || len(membership) == 0 {
-			RespondNotFound(c, "Squad not found")
-			return
-		}
-		hasAccess := false
-		for _, m := range membership {
-			if m.UserID == userID {
-				hasAccess = true
-				break
-			}
-		}
-		if !hasAccess {
-			RespondNotFound(c, "Squad not found")
-			return
-		}
 	}
 
 	RespondSuccess(c, http.StatusOK, squad)
 }
 
 // GetSquads возвращает список отрядов с пагинацией.
-// Админ получает все отряды, fighter — только отряды, в которых состоит.
+// Админ получает все отряды, fighter — только свой текущий отряд.
 // GET /squads
 func (h *Handler) GetSquads(c *gin.Context) {
 	limit, offset := GetLimitOffset(c)
 
-	// Fighter видит только свои отряды
+	// Fighter видит только свой текущий отряд — squad_id из контекста
 	role, _ := middleware.GetUserRole(c)
-	userID, _ := middleware.GetUserID(c)
-
 	if role == "fighter" {
-		memberships, err := h.squadMembershipRepo.GetByUserID(c.Request.Context(), userID, limit, offset)
+		squadID, err := getSquadIDFromContext(c)
 		if err != nil {
-			RespondInternalError(c, "Failed to get user memberships: "+err.Error())
+			RespondInternalError(c, "Failed to get squad information: "+err.Error())
 			return
 		}
 
-		squadIDs := make([]int64, 0, len(memberships))
-		for _, m := range memberships {
-			squadIDs = append(squadIDs, m.SquadID)
+		squad, err := h.squadRepo.GetByID(c.Request.Context(), squadID)
+		if err != nil {
+			RespondNotFound(c, "Squad not found")
+			return
 		}
 
-		squads := make([]*model.Squad, 0, len(squadIDs))
-		for _, id := range squadIDs {
-			s, err := h.squadRepo.GetByID(c.Request.Context(), id)
-			if err != nil {
-				continue
-			}
-			squads = append(squads, s)
-		}
-
-		RespondSuccess(c, http.StatusOK, squads)
+		RespondSuccess(c, http.StatusOK, squad)
 		return
 	}
 
@@ -171,31 +141,24 @@ func (h *Handler) GetSquadsByRegion(c *gin.Context) {
 		return
 	}
 
-	limit, offset := GetLimitOffset(c)
+		limit, offset := GetLimitOffset(c)
 
-	// Fighter видит только свои отряды в регионе
+	// Fighter видит только свои отряды в регионе — squad_id из контекста
 	role, _ := middleware.GetUserRole(c)
-	userID, _ := middleware.GetUserID(c)
-
 	if role == "fighter" {
-		memberships, err := h.squadMembershipRepo.GetByUserID(c.Request.Context(), userID, limit, offset)
+		squadID, err := getSquadIDFromContext(c)
 		if err != nil {
-			RespondInternalError(c, "Failed to get user memberships: "+err.Error())
+			RespondInternalError(c, "Failed to get squad information: "+err.Error())
 			return
 		}
 
-		squads := make([]*model.Squad, 0, len(memberships))
-		for _, m := range memberships {
-			s, err := h.squadRepo.GetByID(c.Request.Context(), m.SquadID)
-			if err != nil {
-				continue
-			}
-			if s.RegionID == regionID {
-				squads = append(squads, s)
-			}
+		squad, err := h.squadRepo.GetByID(c.Request.Context(), squadID)
+		if err != nil {
+			RespondNotFound(c, "Squad not found")
+			return
 		}
 
-		RespondSuccess(c, http.StatusOK, squads)
+	RespondSuccess(c, http.StatusOK, squad)
 		return
 	}
 
@@ -209,20 +172,14 @@ func (h *Handler) GetSquadsByRegion(c *gin.Context) {
 	RespondSuccess(c, http.StatusOK, squads)
 }
 
-// UpdateSquad обновляет существующий отряд.
-// Только admin может обновлять отряды.
-// PUT /squads/:id
-func (h *Handler) UpdateSquad(c *gin.Context) {
-	// Проверяем, что пользователь admin
-	role, _ := middleware.GetUserRole(c)
-	if role != "admin" {
-		RespondError(c, http.StatusForbidden, "Admin access required")
-		return
-	}
-
-	id, err := GetIDFromPath(c)
+// UpdateCurrentSquad обновляет текущий отряд пользователя.
+// Только commander может обновлять свой отряд.
+// PUT /squads/current
+func (h *Handler) UpdateCurrentSquad(c *gin.Context) {
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
@@ -233,7 +190,7 @@ func (h *Handler) UpdateSquad(c *gin.Context) {
 	}
 
 	// Проверяем, что отряд существует
-	squad, err := h.squadRepo.GetByID(c.Request.Context(), id)
+	squad, err := h.squadRepo.GetByID(c.Request.Context(), squadID)
 	if err != nil {
 		RespondNotFound(c, "Squad not found")
 		return
@@ -249,7 +206,7 @@ func (h *Handler) UpdateSquad(c *gin.Context) {
 	// Проверяем, что отряд с таким названием еще не существует (если название изменилось)
 	if req.Title != squad.Title {
 		existingSquad, err := h.squadRepo.GetByTitle(c.Request.Context(), req.Title)
-		if err == nil && existingSquad != nil && existingSquad.ID != id {
+		if err == nil && existingSquad != nil && existingSquad.ID != squadID {
 			RespondError(c, http.StatusConflict, "Squad with this title already exists")
 			return
 		}
@@ -268,10 +225,10 @@ func (h *Handler) UpdateSquad(c *gin.Context) {
 	RespondSuccess(c, http.StatusOK, squad)
 }
 
-// DeleteSquad удаляет отряд по ID.
+// DeleteCurrentSquad удаляет текущий отряд пользователя.
 // Только admin может удалять отряды.
-// DELETE /squads/:id
-func (h *Handler) DeleteSquad(c *gin.Context) {
+// DELETE /squads/current
+func (h *Handler) DeleteCurrentSquad(c *gin.Context) {
 	// Проверяем, что пользователь admin
 	role, _ := middleware.GetUserRole(c)
 	if role != "admin" {
@@ -279,20 +236,21 @@ func (h *Handler) DeleteSquad(c *gin.Context) {
 		return
 	}
 
-	id, err := GetIDFromPath(c)
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
 	// Проверяем, что отряд существует
-	_, err = h.squadRepo.GetByID(c.Request.Context(), id)
+	_, err = h.squadRepo.GetByID(c.Request.Context(), squadID)
 	if err != nil {
 		RespondNotFound(c, "Squad not found")
 		return
 	}
 
-	if err := h.squadRepo.Delete(c.Request.Context(), id); err != nil {
+	if err := h.squadRepo.Delete(c.Request.Context(), squadID); err != nil {
 		RespondInternalError(c, "Failed to delete squad: "+err.Error())
 		return
 	}

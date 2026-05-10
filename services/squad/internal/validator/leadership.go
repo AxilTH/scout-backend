@@ -4,7 +4,6 @@ package validator
 // AssignPositionRequest — структура только для десериализации JSON
 type AssignPositionRequest struct {
 	UserID     int64 `json:"user_id"`
-	SquadID    int64 `json:"squad_id"`
 	PositionID int64 `json:"position_id"`
 }
 

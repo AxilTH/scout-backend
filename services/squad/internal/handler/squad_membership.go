@@ -3,7 +3,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/AxilTH/scout-backend/services/squad/internal/model"
 	"github.com/AxilTH/scout-backend/services/squad/internal/validator"
@@ -12,9 +11,8 @@ import (
 
 // AddMembershipRequest представляет запрос на добавление участника в отряд
 type AddMembershipRequest struct {
-	UserID  int64 `json:"user_id" binding:"required"`
-	SquadID int64 `json:"squad_id" binding:"required"`
-	RoleID  int64 `json:"role_id" binding:"required"`
+	UserID int64 `json:"user_id" binding:"required"`
+	RoleID int64 `json:"role_id" binding:"required"`
 }
 
 // UpdateMembershipRequest представляет запрос на обновление членства
@@ -24,12 +22,13 @@ type UpdateMembershipRequest struct {
 	LeftAt   *int64 `json:"left_at,omitempty"` // timestamp
 }
 
-// GetSquadMembers возвращает всех участников отряда с пагинацией
-// GET /squads/:id/members
+// GetSquadMembers возвращает всех участников отряда с пагинацией.
+// GET /members
 func (h *Handler) GetSquadMembers(c *gin.Context) {
-	squadID, err := GetIDFromPath(c)
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
@@ -51,12 +50,13 @@ func (h *Handler) GetSquadMembers(c *gin.Context) {
 	RespondSuccess(c, http.StatusOK, memberships)
 }
 
-// GetActiveSquadMembers возвращает только активных участников отряда с пагинацией
-// GET /squads/:id/members/active
+// GetActiveSquadMembers возвращает только активных участников отряда с пагинацией.
+// GET /members/active
 func (h *Handler) GetActiveSquadMembers(c *gin.Context) {
-	squadID, err := GetIDFromPath(c)
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
@@ -78,17 +78,18 @@ func (h *Handler) GetActiveSquadMembers(c *gin.Context) {
 	RespondSuccess(c, http.StatusOK, memberships)
 }
 
-// AddMembership добавляет участника в отряд
-// POST /squads/:id/memberships
+// AddMembership добавляет участника в отряд.
+// POST /memberships
 func (h *Handler) AddMembership(c *gin.Context) {
-	squadID, err := GetIDFromPath(c)
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
 	// 1. Парсим тело запроса в Request (только для десериализации)
-	var req validator.AddMembershipRequest
+	var req AddMembershipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		RespondValidationError(c, "Invalid JSON format")
 		return
@@ -97,7 +98,7 @@ func (h *Handler) AddMembership(c *gin.Context) {
 	// 2. Преобразуем в Input для валидации
 	input := validator.AddMembershipInput{
 		UserID:  req.UserID,
-		SquadID: squadID, // берем из пути
+		SquadID: squadID, // берем из контекста
 		RoleID:  req.RoleID,
 	}
 
@@ -111,12 +112,6 @@ func (h *Handler) AddMembership(c *gin.Context) {
 	allErrs := append(structErrs, bizErrs...)
 	if len(allErrs) > 0 {
 		RespondValidationErrors(c, allErrs.ToHumanReadable())
-		return
-	}
-
-	// Проверяем, что squadID из пути совпадает с squadID из тела запроса
-	if req.SquadID != squadID {
-		RespondValidationError(c, "Squad ID mismatch")
 		return
 	}
 
@@ -144,7 +139,7 @@ func (h *Handler) AddMembership(c *gin.Context) {
 	// Создаем новое членство
 	membership := &model.SquadMembership{
 		UserID:    req.UserID,
-		SquadID:   req.SquadID,
+		SquadID:   squadID,
 		RoleID:    req.RoleID,
 		IsActive:  true,
 		JoinedAt:  GetCurrentTime(),
@@ -160,70 +155,55 @@ func (h *Handler) AddMembership(c *gin.Context) {
 	RespondSuccess(c, http.StatusCreated, membership)
 }
 
-// GetUserRole возвращает роль пользователя в отряде
-// GET /squads/:id/members/:user_id/role
+// GetUserRole возвращает роль пользователя в отряде.
+// GET /members/:id/role
 func (h *Handler) GetUserRole(c *gin.Context) {
-	squadID, err := GetIDFromPath(c)
+	membershipID, err := GetIDFromPath(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondValidationError(c, "Invalid membership ID")
 		return
 	}
 
-	userIDStr := c.Param("user_id")
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid user ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
-	// Проверяем, что отряд существует
-	_, err = h.squadRepo.GetByID(c.Request.Context(), squadID)
+	// Получаем членство по ID с проверкой squad_id
+	membership, err := h.squadMembershipRepo.GetByIDAndSquadID(c.Request.Context(), membershipID, squadID)
 	if err != nil {
-		RespondNotFound(c, "Squad not found")
+		RespondNotFound(c, "Membership not found")
 		return
 	}
 
-	// Получаем членство пользователя
-	memberships, err := h.squadMembershipRepo.GetBySquadID(c.Request.Context(), squadID, 100, 0)
-	if err != nil {
-		RespondInternalError(c, "Failed to get membership: "+err.Error())
-		return
-	}
-
-	// Ищем членство пользователя
-	for _, membership := range memberships {
-		if membership.UserID == userID {
-			RespondSuccess(c, http.StatusOK, gin.H{
-				"user_id":   membership.UserID,
-				"squad_id":  membership.SquadID,
-				"role_id":   membership.RoleID,
-				"is_active": membership.IsActive,
-			})
-			return
-		}
-	}
-
-	RespondNotFound(c, "Membership not found")
+	RespondSuccess(c, http.StatusOK, gin.H{
+		"user_id":   membership.UserID,
+		"squad_id":  membership.SquadID,
+		"role_id":   membership.RoleID,
+		"is_active": membership.IsActive,
+	})
 }
 
-// UpdateMembership обновляет членство пользователя в отряде
-// PUT /squads/:id/members/:user_id
+// UpdateMembership обновляет членство пользователя в отряде.
+// PUT /members/:id
 func (h *Handler) UpdateMembership(c *gin.Context) {
-	squadID, err := GetIDFromPath(c)
+	membershipID, err := GetIDFromPath(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
+		RespondValidationError(c, "Invalid membership ID")
 		return
 	}
 
-	userIDStr := c.Param("user_id")
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid user ID")
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
 		return
 	}
 
 	// 1. Парсим тело запроса в Request (только для десериализации)
-	var req validator.UpdateMembershipRequest
+	var req UpdateMembershipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		RespondValidationError(c, "Invalid JSON format")
 		return
@@ -249,13 +229,6 @@ func (h *Handler) UpdateMembership(c *gin.Context) {
 		return
 	}
 
-	// Проверяем, что отряд существует
-	_, err = h.squadRepo.GetByID(c.Request.Context(), squadID)
-	if err != nil {
-		RespondNotFound(c, "Squad not found")
-		return
-	}
-
 	// Проверяем, что роль существует
 	_, err = h.roleRepo.GetByID(c.Request.Context(), req.RoleID)
 	if err != nil {
@@ -263,31 +236,92 @@ func (h *Handler) UpdateMembership(c *gin.Context) {
 		return
 	}
 
-	// Получаем членство пользователя
+	// Получаем членство по ID с проверкой squad_id
+	membership, err := h.squadMembershipRepo.GetByIDAndSquadID(c.Request.Context(), membershipID, squadID)
+	if err != nil {
+		RespondNotFound(c, "Membership not found")
+		return
+	}
+
+	// Обновляем членство
+	membership.RoleID = req.RoleID
+	membership.IsActive = req.IsActive
+	membership.UpdatedAt = GetCurrentTime()
+
+	// Если деактивируем членство, устанавливаем дату ухода
+	if !req.IsActive && membership.LeftAt == nil {
+		leftAt := GetCurrentTime()
+		membership.LeftAt = &leftAt
+	}
+
+	if err := h.squadMembershipRepo.Update(c.Request.Context(), membership); err != nil {
+		RespondInternalError(c, "Failed to update membership: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, http.StatusOK, membership)
+}
+
+// RemoveMembership удаляет членство пользователя из отряда.
+// DELETE /members/:id
+func (h *Handler) RemoveMembership(c *gin.Context) {
+	membershipID, err := GetIDFromPath(c)
+	if err != nil {
+		RespondValidationError(c, "Invalid membership ID")
+		return
+	}
+
+	// Извлекаем squad_id из контекста (для изоляции данных)
+	squadID, err := getSquadIDFromContext(c)
+	if err != nil {
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
+		return
+	}
+
+	// Получаем членство по ID с проверкой squad_id
+	membership, err := h.squadMembershipRepo.GetByIDAndSquadID(c.Request.Context(), membershipID, squadID)
+	if err != nil {
+		RespondNotFound(c, "Membership not found")
+		return
+	}
+
+	if err := h.squadMembershipRepo.Delete(c.Request.Context(), membership.ID); err != nil {
+		RespondInternalError(c, "Failed to remove membership: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, http.StatusOK, gin.H{
+		"message": "Membership removed successfully",
+	})
+}
+
+// GetMyMembership возвращает членство текущего пользователя в отряде.
+// GET /members/me
+func (h *Handler) GetMyMembership(c *gin.Context) {
+	// Извлекаем user_id из контекста
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		RespondInternalError(c, "Failed to get user information: "+err.Error())
+		return
+	}
+
+	// Извлекаем squad_id из контекста
+	squadID, err := getSquadIDFromContext(c)
+	if err != nil {
+		RespondInternalError(c, "Failed to get squad information: "+err.Error())
+		return
+	}
+
+	// Получаем членство пользователя в этом отряде
 	memberships, err := h.squadMembershipRepo.GetBySquadID(c.Request.Context(), squadID, 100, 0)
 	if err != nil {
 		RespondInternalError(c, "Failed to get membership: "+err.Error())
 		return
 	}
 
-	// Ищем и обновляем членство пользователя
+	// Ищем членство текущего пользователя
 	for _, membership := range memberships {
 		if membership.UserID == userID {
-			membership.RoleID = req.RoleID
-			membership.IsActive = req.IsActive
-			membership.UpdatedAt = GetCurrentTime()
-
-			// Если деактивируем членство, устанавливаем дату ухода
-			if !req.IsActive && membership.LeftAt == nil {
-				leftAt := GetCurrentTime()
-				membership.LeftAt = &leftAt
-			}
-
-			if err := h.squadMembershipRepo.Update(c.Request.Context(), membership); err != nil {
-				RespondInternalError(c, "Failed to update membership: "+err.Error())
-				return
-			}
-
 			RespondSuccess(c, http.StatusOK, membership)
 			return
 		}
@@ -296,61 +330,13 @@ func (h *Handler) UpdateMembership(c *gin.Context) {
 	RespondNotFound(c, "Membership not found")
 }
 
-// RemoveMembership удаляет членство пользователя из отряда
-// DELETE /squads/:id/members/:user_id
-func (h *Handler) RemoveMembership(c *gin.Context) {
-	squadID, err := GetIDFromPath(c)
-	if err != nil {
-		RespondValidationError(c, "Invalid squad ID")
-		return
-	}
-
-	userIDStr := c.Param("user_id")
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil {
-		RespondValidationError(c, "Invalid user ID")
-		return
-	}
-
-	// Проверяем, что отряд существует
-	_, err = h.squadRepo.GetByID(c.Request.Context(), squadID)
-	if err != nil {
-		RespondNotFound(c, "Squad not found")
-		return
-	}
-
-	// Получаем членство пользователя
-	memberships, err := h.squadMembershipRepo.GetBySquadID(c.Request.Context(), squadID, 100, 0)
-	if err != nil {
-		RespondInternalError(c, "Failed to get membership: "+err.Error())
-		return
-	}
-
-	// Ищем и удаляем членство пользователя
-	for _, membership := range memberships {
-		if membership.UserID == userID {
-			if err := h.squadMembershipRepo.Delete(c.Request.Context(), membership.ID); err != nil {
-				RespondInternalError(c, "Failed to remove membership: "+err.Error())
-				return
-			}
-
-			RespondSuccess(c, http.StatusOK, gin.H{
-				"message": "Membership removed successfully",
-			})
-			return
-		}
-	}
-
-	RespondNotFound(c, "Membership not found")
-}
-
-// GetUserSquads возвращает все отряды пользователя с пагинацией
-// GET /users/:user_id/squads
+// GetUserSquads возвращает все отряды текущего пользователя с пагинацией.
+// GET /users/me/squads
 func (h *Handler) GetUserSquads(c *gin.Context) {
-	userIDStr := c.Param("user_id")
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	// Извлекаем user_id из контекста
+	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid user ID")
+		RespondInternalError(c, "Failed to get user information: "+err.Error())
 		return
 	}
 
@@ -365,13 +351,13 @@ func (h *Handler) GetUserSquads(c *gin.Context) {
 	RespondSuccess(c, http.StatusOK, memberships)
 }
 
-// GetUserActiveSquad возвращает активный отряд пользователя
-// GET /users/:user_id/squads/active
+// GetUserActiveSquad возвращает активный отряд текущего пользователя.
+// GET /users/me/squads/active
 func (h *Handler) GetUserActiveSquad(c *gin.Context) {
-	userIDStr := c.Param("user_id")
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	// Извлекаем user_id из контекста
+	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		RespondValidationError(c, "Invalid user ID")
+		RespondInternalError(c, "Failed to get user information: "+err.Error())
 		return
 	}
 

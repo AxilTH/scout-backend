@@ -13,13 +13,15 @@ import (
 const (
 	CtxKeyUserID   = "user_id"
 	CtxKeyUserRole = "user_role"
+	CtxKeySquadID  = "squad_id"
 )
 
 // Claims представляет JWT claims, ожидаемые от будущего auth сервиса
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID int64  `json:"user_id"`
-	Role   string `json:"role"`
+	UserID   int64  `json:"user_id"`
+	Role     string `json:"role"`
+	SquadID  int64  `json:"squad_id"` // текущий отряд пользователя
 }
 
 // AuthRequired создает middleware, проверяющий валидность JWT токена.
@@ -49,6 +51,7 @@ func AuthRequired(secret string) gin.HandlerFunc {
 		}
 
 		c.Set(CtxKeyUserID, claims.UserID)
+		c.Set(CtxKeySquadID, claims.SquadID)
 		c.Set(CtxKeyUserRole, claims.Role)
 
 		c.Next()
@@ -102,4 +105,14 @@ func extractToken(c *gin.Context) string {
 		return ""
 	}
 	return parts[1]
+}
+
+// GetSquadID извлекает squad_id из контекста
+func GetSquadID(c *gin.Context) (int64, bool) {
+	val, ok := c.Get(CtxKeySquadID)
+	if !ok {
+		return 0, false
+	}
+	id, ok := val.(int64)
+	return id, ok
 }

@@ -116,3 +116,83 @@ func (r *squadLeadershipRepository) Delete(ctx context.Context, id int64) error 
 
 	return nil
 }
+
+// GetByIDAndSquadID возвращает должность по ID, только если она принадлежит указанному отряду
+// Возвращает nil, nil если должность не найдена или не принадлежит отряду
+func (r *squadLeadershipRepository) GetByIDAndSquadID(ctx context.Context, id, squadID int64) (*model.SquadLeadership, error) {
+	var leadership model.SquadLeadership
+	query := `SELECT id, appointed_at, dismissed_at, created_at, updated_at, user_id, squad_id, position_id FROM squad_leaderships WHERE id = $1`
+	err := r.db.GetContext(ctx, &leadership, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get squad leadership by id: %w", err)
+	}
+
+	// Проверяем, что должность принадлежит указанному squad_id
+	if leadership.SquadID != squadID {
+		return nil, fmt.Errorf("leadership does not belong to specified squad")
+	}
+
+	return &leadership, nil
+}
+
+// UpdateAndSquadID обновляет существующую должность, только если она принадлежит указанному отряду
+func (r *squadLeadershipRepository) UpdateAndSquadID(ctx context.Context, entity *model.SquadLeadership, squadID int64) error {
+	// Сначала проверяем, что должность существует и принадлежит squad_id
+	existingLeadership, err := r.GetByID(ctx, entity.ID)
+	if err != nil {
+		return fmt.Errorf("leadership not found: %w", err)
+	}
+
+	if existingLeadership.SquadID != squadID {
+		return fmt.Errorf("leadership does not belong to specified squad")
+	}
+
+	// Обновляем должность
+	query := `UPDATE squad_leaderships SET appointed_at = :appointed_at, dismissed_at = :dismissed_at, updated_at = :updated_at, user_id = :user_id, squad_id = :squad_id, position_id = :position_id WHERE id = :id`
+	result, err := r.db.NamedExecContext(ctx, query, entity)
+	if err != nil {
+		return fmt.Errorf("failed to update squad leadership: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("squad leadership not found")
+	}
+
+	return nil
+}
+
+// DeleteAndSquadID удаляет должность по ID, только если она принадлежит указанному отряду
+func (r *squadLeadershipRepository) DeleteAndSquadID(ctx context.Context, id, squadID int64) error {
+	// Сначала проверяем, что должность существует и принадлежит squad_id
+	existingLeadership, err := r.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("leadership not found: %w", err)
+	}
+
+	if existingLeadership.SquadID != squadID {
+		return fmt.Errorf("leadership does not belong to specified squad")
+	}
+
+	// Удаляем должность
+	query := `DELETE FROM squad_leaderships WHERE id = $1`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete squad leadership: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("squad leadership not found")
+	}
+
+	return nil
+}

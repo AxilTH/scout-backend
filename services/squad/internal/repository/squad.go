@@ -13,4 +13,7 @@ type SquadRepository interface {
 
 	GetByTitle(ctx context.Context, title string) (*model.Squad, error)
 	GetByRegionID(ctx context.Context, regionID int64, limit, offset int) ([]*model.Squad, error)
+	GetByIDAndSquadID(ctx context.Context, id, squadID int64) (*model.Squad, error)
+	UpdateAndSquadID(ctx context.Context, entity *model.Squad, squadID int64) error
+	DeleteAndSquadID(ctx context.Context, id, squadID int64) error
 }

@@ -138,3 +138,83 @@ func (r *squadMembershipRepository) Delete(ctx context.Context, id int64) error 
 
 	return nil
 }
+
+// GetByIDAndSquadID возвращает членство по ID, только если оно принадлежит указанному отряду
+// Возвращает nil, nil если членство не найдено или не принадлежит отряду
+func (r *squadMembershipRepository) GetByIDAndSquadID(ctx context.Context, id, squadID int64) (*model.SquadMembership, error) {
+	var membership model.SquadMembership
+	query := `SELECT id, is_active, joined_at, left_at, created_at, updated_at, user_id, squad_id, role_id FROM squad_memberships WHERE id = $1`
+	err := r.db.GetContext(ctx, &membership, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get squad membership by id: %w", err)
+	}
+
+	// Проверяем, что членство принадлежит указанному squad_id
+	if membership.SquadID != squadID {
+		return nil, fmt.Errorf("membership does not belong to specified squad")
+	}
+
+	return &membership, nil
+}
+
+// UpdateAndSquadID обновляет существующее членство, только если оно принадлежит указанному отряду
+func (r *squadMembershipRepository) UpdateAndSquadID(ctx context.Context, entity *model.SquadMembership, squadID int64) error {
+	// Сначала проверяем, что членство существует и принадлежит squad_id
+	existingMembership, err := r.GetByID(ctx, entity.ID)
+	if err != nil {
+		return fmt.Errorf("membership not found: %w", err)
+	}
+
+	if existingMembership.SquadID != squadID {
+		return fmt.Errorf("membership does not belong to specified squad")
+	}
+
+	// Обновляем членство
+	query := `UPDATE squad_memberships SET is_active = :is_active, joined_at = :joined_at, left_at = :left_at, updated_at = :updated_at, user_id = :user_id, squad_id = :squad_id, role_id = :role_id WHERE id = :id`
+	result, err := r.db.NamedExecContext(ctx, query, entity)
+	if err != nil {
+		return fmt.Errorf("failed to update squad membership: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("squad membership not found")
+	}
+
+	return nil
+}
+
+// DeleteAndSquadID удаляет членство по ID, только если оно принадлежит указанному отряду
+func (r *squadMembershipRepository) DeleteAndSquadID(ctx context.Context, id, squadID int64) error {
+	// Сначала проверяем, что членство существует и принадлежит squad_id
+	existingMembership, err := r.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("membership not found: %w", err)
+	}
+
+	if existingMembership.SquadID != squadID {
+		return fmt.Errorf("membership does not belong to specified squad")
+	}
+
+	// Удаляем членство
+	query := `DELETE FROM squad_memberships WHERE id = $1`
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete squad membership: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("squad membership not found")
+	}
+
+	return nil
+}

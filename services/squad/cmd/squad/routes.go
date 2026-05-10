@@ -85,34 +85,42 @@ func setupRoutes(r *gin.Engine, db *sqlx.DB, jwtSecret string) {
 		{
 			squads.POST("", h.CreateSquad)
 			squads.GET("", h.GetSquads)
-			squads.GET("/:id", h.GetSquad)
-			squads.PUT("/:id", h.UpdateSquad)
-			squads.DELETE("/:id", h.DeleteSquad)
+			squads.GET("/current", h.GetCurrentSquad)
+			squads.PUT("/current", h.UpdateCurrentSquad)
+			squads.DELETE("/current", h.DeleteCurrentSquad)
+		}
 
-			// Squad members — read only for all authenticated users
-			squads.GET("/:id/members", h.GetSquadMembers)
-			squads.GET("/:id/members/active", h.GetActiveSquadMembers)
-			squads.GET("/:id/members/:user_id/role", h.GetUserRole)
+		// Squad members — read only for all authenticated users
+		members := v1.Group("/members")
+		members.Use(middleware.AuthRequired(jwtSecret))
+		{
+			members.GET("", h.GetSquadMembers)
+			members.GET("/active", h.GetActiveSquadMembers)
+			members.GET("/me", h.GetMyMembership)
+			members.GET("/:id/role", h.GetUserRole)
 
 			// Squad members management — commander only
-			squadMembers := squads.Group("/:id")
-			squadMembers.Use(middleware.CommanderOnly(squadLeadershipRepo, positionRepo))
+			members.Use(middleware.CommanderOnly(squadLeadershipRepo, positionRepo))
 			{
-				squadMembers.POST("/memberships", h.AddMembership)
-				squadMembers.PUT("/members/:user_id", h.UpdateMembership)
-				squadMembers.DELETE("/members/:user_id", h.RemoveMembership)
+				members.POST("", h.AddMembership)
+				members.PUT("/:id", h.UpdateMembership)
+				members.DELETE("/:id", h.RemoveMembership)
 			}
+		}
 
-			// Squad leadership — read only for all authenticated users
-			squads.GET("/:id/leadership", h.GetSquadLeadership)
+		// Squad leadership — read only for all authenticated users
+		leadership := v1.Group("/leadership")
+		leadership.Use(middleware.AuthRequired(jwtSecret))
+		{
+			leadership.GET("", h.GetSquadLeadership)
+			leadership.GET("/me", h.GetMyLeadership)
 
 			// Squad leadership management — commander only
-			squadLeadership := squads.Group("/:id")
-			squadLeadership.Use(middleware.CommanderOnly(squadLeadershipRepo, positionRepo))
+			leadership.Use(middleware.CommanderOnly(squadLeadershipRepo, positionRepo))
 			{
-				squadLeadership.POST("/leadership", h.AssignPosition)
-				squadLeadership.PUT("/leadership/:user_id", h.UpdateLeadershipPosition)
-				squadLeadership.DELETE("/leadership/:user_id", h.DismissPosition)
+				leadership.POST("", h.AssignPosition)
+				leadership.PUT("/:id", h.UpdateLeadershipPosition)
+				leadership.DELETE("/:id", h.DismissPosition)
 			}
 		}
 
@@ -120,8 +128,8 @@ func setupRoutes(r *gin.Engine, db *sqlx.DB, jwtSecret string) {
 		users := v1.Group("/users")
 		users.Use(middleware.AuthRequired(jwtSecret))
 		{
-			users.GET("/:user_id/squads", h.GetUserSquads)
-			users.GET("/:user_id/squads/active", h.GetUserActiveSquad)
+			users.GET("/me/squads", h.GetUserSquads)
+			users.GET("/me/squads/active", h.GetUserActiveSquad)
 			users.GET("/:user_id/leadership", h.GetUserLeadership)
 		}
 	}

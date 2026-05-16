@@ -66,37 +66,37 @@ services:
       start_period: 10s
 
   # ============================================================
-  # Auth & Identity Service (пока не реализован)
+  # Auth & Identity Service
   # ============================================================
-  # auth-service:
-  #   build:
-  #     context: ./services/auth
-  #     dockerfile: Dockerfile
-  #   container_name: scout-auth
-  #   environment:
-  #     # Общие переменные (из корневого .env)
-  #     - DB_HOST=postgres_auth
-  #     - DB_PORT=5432
-  #     - DB_USER=${DB_USER}
-  #     - DB_PASSWORD=${DB_PASSWORD}
-  #     - JWT_SECRET=${JWT_SECRET}
-  #     # Сервис-специфичные переменные
-  #     - DB_NAME=scout_auth
-  #     - AUTH_SERVICE_PORT=8083
-  #   ports:
-  #     - "8083:8083"
-  #   depends_on:
-  #     postgres_auth:
-  #       condition: service_healthy
-  #   networks:
-  #     - scout-network
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/health"]
-  #     interval: 10s
-  #     timeout: 3s
-  #     retries: 3
-  #     start_period: 10s
+  auth-service:
+    build:
+      context: ./services/auth
+      dockerfile: Dockerfile
+    container_name: scout-auth
+    environment:
+      # Общие переменные (из корневого .env)
+      - DB_HOST=postgres_auth
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      # Сервис-специфичные переменные
+      - DB_NAME=scout_auth
+      - AUTH_SERVICE_PORT=8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres_auth:
+        condition: service_healthy
+    networks:
+      - scout-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   # ============================================================
   # Tracking Service (пока не реализован)
@@ -217,25 +217,25 @@ services:
   # ============================================================
   # PostgreSQL для Auth Service (пока не используется)
   # ============================================================
-  # postgres_auth:
-  #   image: postgres:17-alpine
-  #   container_name: scout-postgres-auth
-  #   environment:
-  #     - POSTGRES_DB=scout_auth
-  #     - POSTGRES_USER=${DB_USER}
-  #     - POSTGRES_PASSWORD=${DB_PASSWORD}
-  #   ports:
-  #     - "5435:5432"
-  #   volumes:
-  #     - postgres_auth_data:/var/lib/postgresql
-  #   networks:
-  #     - scout-network
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   restart: unless-stopped
+  postgres_auth:
+    image: postgres:17-alpine
+    container_name: scout-postgres-auth
+    environment:
+      - POSTGRES_DB=scout_auth
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql
+    networks:
+      - scout-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # ============================================================
   # PostgreSQL для Tracking Service (пока не используется)
@@ -338,7 +338,7 @@ networks:
 volumes:
   postgres_education_data:
   postgres_squad_data:
-  # postgres_auth_data:
+  postgres_auth_data:
   # postgres_tracking_data:
   # postgres_files_data:
   # minio_data:

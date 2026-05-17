@@ -1,5 +1,3 @@
--- migrations/000001_create_models.up.sql
-
 -- Таблица пользователей
 CREATE TABLE users (
    id BIGSERIAL PRIMARY KEY,
@@ -26,21 +24,18 @@ CREATE TABLE education_institutions (
 
 -- Таблица приглашений
 CREATE TABLE invitations (
-   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   id BIGSERIAL PRIMARY KEY,
    email TEXT NOT NULL,
    squad_id BIGINT NOT NULL,
    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
    used_at TIMESTAMP WITH TIME ZONE,
+   used_by BIGINT,
    created_by BIGINT NOT NULL,
    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Внешние ключи
-ALTER TABLE invitations 
-   ADD CONSTRAINT fk_invitations_created_by 
+ALTER TABLE invitations
+   ADD CONSTRAINT fk_invitations_created_by
    FOREIGN KEY (created_by) REFERENCES users(id);
-
-ALTER TABLE invitations 
-   ADD CONSTRAINT fk_invitations_squad_id 
-   FOREIGN KEY (squad_id) REFERENCES squads(id) ON DELETE CASCADE;

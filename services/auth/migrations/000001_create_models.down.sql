@@ -1,10 +1,6 @@
--- migrations/000001_create_models.down.sql
-
--- Удаляем внешние ключи
-ALTER TABLE invitations DROP CONSTRAINT IF EXISTS fk_invitations_created_by;
-ALTER TABLE invitations DROP CONSTRAINT IF EXISTS fk_invitations_squad_id;
-
--- Удаляем таблицы
+-- Удаляем таблицу приглашений
 DROP TABLE IF EXISTS invitations;
+-- Удаляем таблицу учебных заведений
 DROP TABLE IF EXISTS education_institutions;
+-- Удаляем таблицу пользователей
 DROP TABLE IF EXISTS users;

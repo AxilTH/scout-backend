@@ -96,6 +96,14 @@ func main() {
 	}
 	log.Println("INFO: Migrations applied successfully")
 
+	// Инициализация репозиториев
+	authRepo, err := repository.NewAuthRepository(db)
+	if err != nil {
+		log.Fatalf("FATAL: Failed to initialize repository: %v", err)
+	}
+	// Using blank identifier to avoid unused variable error while we implement handlers
+	_ = authRepo
+
 	// Настройка Gin
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()

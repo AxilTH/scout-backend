@@ -48,14 +48,13 @@ func (r *userRepositoryImpl) Update(ctx context.Context, entity *model.User) err
 		UPDATE users
 		SET first_name = :first_name,
 		    last_name = :last_name,
-		    middle_name = :middle_name,
-		    phone_number = :phone_number,
+		    middle_name = COALESCE(:middle_name, middle_name),
+		    phone_number = COALESCE(:phone_number, phone_number),
 		    email = :email,
-		    date_of_birth = :date_of_birth,
-		    vk_profile_url = :vk_profile_url,
+		    date_of_birth = COALESCE(:date_of_birth, date_of_birth),
+		    vk_profile_url = COALESCE(:vk_profile_url, vk_profile_url),
 		    password_hash = :password_hash,
-		    created_at = :created_at,
-		    updated_at = :updated_at
+		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = :id`
 	_, err := r.db.NamedExecContext(ctx, query, entity)
 	return err
@@ -104,4 +103,16 @@ func (r *userRepositoryImpl) GetByIDs(ctx context.Context, ids []int64) ([]*mode
 	var users []*model.User
 	err := r.db.SelectContext(ctx, &users, query, args...)
 	return users, err
+}
+
+// GetSquadIDsByUserID returns squad IDs that the user belongs to,
+// based on invitations that have been used by the user (used_by = userID).
+func (r *userRepositoryImpl) GetSquadIDsByUserID(ctx context.Context, userID int64) ([]int64, error) {
+	var squadIDs []int64
+	query := `SELECT DISTINCT squad_id FROM invitations WHERE used_by = $1`
+	err := r.db.SelectContext(ctx, &squadIDs, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	return squadIDs, nil
 }

@@ -22,8 +22,8 @@ func (r *invitationRepositoryImpl) Create(ctx context.Context, entity *model.Inv
 	entity.UpdatedAt = now
 
 	query := `
-		INSERT INTO invitations (email, squad_id, expires_at, used_at, used_by, created_by, created_at, updated_at)
-		VALUES (:email, :squad_id, :expires_at, :used_at, :used_by, :created_by, :created_at, :updated_at)
+		INSERT INTO invitations (email, squad_id, role_id, expires_at, used_at, used_by, created_by, created_at, updated_at)
+		VALUES (:email, :squad_id, :role_id, :expires_at, :used_at, :used_by, :created_by, :created_at, :updated_at)
 		RETURNING id`
 	rows, err := r.db.NamedQueryContext(ctx, query, entity)
 	if err != nil {
@@ -39,7 +39,7 @@ func (r *invitationRepositoryImpl) Create(ctx context.Context, entity *model.Inv
 // GetByID returns an invitation by ID (base repository method)
 func (r *invitationRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.Invitation, error) {
 	var inv model.Invitation
-	err := r.db.GetContext(ctx, &inv, "SELECT id, email, squad_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations WHERE id = $1", id)
+	err := r.db.GetContext(ctx, &inv, "SELECT id, email, squad_id, role_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations WHERE id = $1", id)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,7 @@ func (r *invitationRepositoryImpl) Update(ctx context.Context, entity *model.Inv
 		UPDATE invitations
 		SET email = :email,
 		    squad_id = :squad_id,
+		    role_id = :role_id,
 		    expires_at = :expires_at,
 		    used_at = :used_at,
 		    used_by = :used_by,
@@ -72,15 +73,16 @@ func (r *invitationRepositoryImpl) Delete(ctx context.Context, id int64) error {
 // List returns a list of invitations with limit and offset
 func (r *invitationRepositoryImpl) List(ctx context.Context, limit, offset int) ([]*model.Invitation, error) {
 	var invs []*model.Invitation
-	err := r.db.SelectContext(ctx, &invs, "SELECT id, email, squad_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations LIMIT $1 OFFSET $2", limit, offset)
+	err := r.db.SelectContext(ctx, &invs, "SELECT id, email, squad_id, role_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations LIMIT $1 OFFSET $2", limit, offset)
 	return invs, err
 }
 
 // CreateInvitation creates a new invitation with explicit parameters
-func (r *invitationRepositoryImpl) CreateInvitation(ctx context.Context, email string, squadID int64, createdBy int64) (*model.Invitation, error) {
+func (r *invitationRepositoryImpl) CreateInvitation(ctx context.Context, email string, squadID int64, roleID int64, createdBy int64) (*model.Invitation, error) {
 	inv := &model.Invitation{
 		Email:     email,
 		SquadID:   squadID,
+		RoleID:    roleID,
 		CreatedBy: createdBy,
 	}
 	err := r.Create(ctx, inv)
@@ -98,7 +100,7 @@ func (r *invitationRepositoryImpl) GetInvitation(ctx context.Context, id int64) 
 // GetInvitationByEmail returns an invitation by email
 func (r *invitationRepositoryImpl) GetInvitationByEmail(ctx context.Context, email string) (*model.Invitation, error) {
 	var inv model.Invitation
-	err := r.db.GetContext(ctx, &inv, "SELECT id, email, squad_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations WHERE email = $1", email)
+	err := r.db.GetContext(ctx, &inv, "SELECT id, email, squad_id, role_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations WHERE email = $1", email)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +117,6 @@ func (r *invitationRepositoryImpl) UseInvitation(ctx context.Context, id int64, 
 // GetValidInvitations returns valid invitations for a squad (not used and not expired)
 func (r *invitationRepositoryImpl) GetValidInvitations(ctx context.Context, squadID int64, limit, offset int) ([]*model.Invitation, error) {
 	var invs []*model.Invitation
-	err := r.db.SelectContext(ctx, &invs, "SELECT id, email, squad_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations WHERE squad_id = $1 AND used_at IS NULL AND expires_at > NOW() ORDER BY created_at LIMIT $2 OFFSET $3", squadID, limit, offset)
+	err := r.db.SelectContext(ctx, &invs, "SELECT id, email, squad_id, role_id, expires_at, used_at, used_by, created_by, created_at, updated_at FROM invitations WHERE squad_id = $1 AND used_at IS NULL AND expires_at > NOW() ORDER BY created_at LIMIT $2 OFFSET $3", squadID, limit, offset)
 	return invs, err
 }

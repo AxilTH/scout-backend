@@ -13,6 +13,7 @@ import (
 
 	"github.com/AxilTH/scout-backend/services/auth/internal/middleware"
 	"github.com/AxilTH/scout-backend/services/auth/internal/repository"
+	"github.com/AxilTH/scout-backend/services/auth/internal/squadclient"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -96,8 +97,22 @@ func main() {
 	}
 	log.Println("INFO: Migrations applied successfully")
 
+	// TODO: исключить эту логику через потоки
+	// Инициализация клиента Squad Service
+	squadServiceURL := os.Getenv("SQUAD_SERVICE_URL")
+	if squadServiceURL == "" {
+		squadServiceURL = "http://squad-service:8082" // Значение по умолчанию из docker-compose
+	}
+	squadTimeout := 10 * time.Second
+	if v := os.Getenv("SQUAD_SERVICE_TIMEOUT"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			squadTimeout = parsed
+		}
+	}
+	squadClient := squadclient.NewSquadClient(squadServiceURL, squadTimeout)
+
 	// Инициализация репозиториев
-	authRepo, err := repository.NewAuthRepository(db)
+	authRepo, err := repository.NewAuthRepository(db, squadClient)
 	if err != nil {
 		log.Fatalf("FATAL: Failed to initialize repository: %v", err)
 	}

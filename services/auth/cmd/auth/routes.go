@@ -6,9 +6,11 @@ import (
 	"github.com/AxilTH/scout-backend/services/auth/internal/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-
+	"github.com/AxilTH/scout-backend/services/auth/internal/squadclient"
 	"github.com/AxilTH/scout-backend/services/auth/internal/repository"
 	"log"
+	"os"
+	"time"
 )
 
 func setupRoutes(r *gin.Engine, db *sqlx.DB, jwtSecret string) {
@@ -17,19 +19,34 @@ func setupRoutes(r *gin.Engine, db *sqlx.DB, jwtSecret string) {
 	r.GET("/health", handler.HealthCheck)
 	r.HEAD("/health", handler.HealthCheck)
 
+	// Initialize Squad Service client
+	squadServiceURL := os.Getenv("SQUAD_SERVICE_URL")
+	if squadServiceURL == "" {
+		squadServiceURL = "http://squad-service:8082" // Значение по умолчанию из docker-compose
+	}
+	squadTimeout := 10 * time.Second
+	if v := os.Getenv("SQUAD_SERVICE_TIMEOUT"); v != "" {
+		if parsed, err := time.ParseDuration(v); err == nil {
+			squadTimeout = parsed
+		}
+	}
+	squadClient := squadclient.NewSquadClient(squadServiceURL, squadTimeout)
+
+	// Initialize auth repository
+	authRepo, err := repository.NewAuthRepository(db, squadClient)
+	if err != nil {
+		panic(err)
+	}
+
 	// API v1 routes
 	v1 := r.Group("/api/v1")
 	{
 		// Auth routes
 		auth := v1.Group("/auth")
 		{
-			authRepo, err := repository.NewAuthRepository(db)
-			if err != nil {
-				panic(err)
-			}
 			log.Println("Registering auth routes")
 			auth.POST("/login", handler.LoginHandler(authRepo.UserRepository, jwtSecret))
-			auth.POST("/register", handler.RegisterHandler(authRepo.UserRepository, authRepo.InvitationRepository, jwtSecret))
+			auth.POST("/register", handler.RegisterHandler(authRepo.UserRepository, authRepo.InvitationRepository, *squadClient, jwtSecret))
 			auth.POST("/refresh", handler.RefreshHandler(jwtSecret))
 			auth.POST("/logout", handler.LogoutHandler())
 			auth.POST("/switch-squad", middleware.AuthRequired(jwtSecret), handler.SwitchSquadHandler(jwtSecret))
@@ -42,10 +59,6 @@ func setupRoutes(r *gin.Engine, db *sqlx.DB, jwtSecret string) {
 		// Education institution routes (protected)
 		edu := v1.Group("/institutions")
 		{
-			authRepo, err := repository.NewAuthRepository(db)
-			if err != nil {
-				panic(err)
-			}
 			log.Println("Registering education institution routes")
 			edu.POST("/", middleware.AuthRequired(jwtSecret), handler.CreateEducationInstitutionHandler(authRepo.EducationInstitutionRepository))
 			edu.GET("/:id", middleware.AuthRequired(jwtSecret), handler.GetEducationInstitutionHandler(authRepo.EducationInstitutionRepository))
@@ -55,10 +68,6 @@ func setupRoutes(r *gin.Engine, db *sqlx.DB, jwtSecret string) {
 		// Invitation routes (protected)
 		inv := v1.Group("/invitations")
 		{
-			authRepo, err := repository.NewAuthRepository(db)
-			if err != nil {
-				panic(err)
-			}
 			log.Println("Registering invitation routes")
 			inv.POST("/", middleware.AuthRequired(jwtSecret), handler.CreateInvitationHandler(authRepo.InvitationRepository))
 			inv.GET("/:id", middleware.AuthRequired(jwtSecret), handler.GetInvitationHandler(authRepo.InvitationRepository))

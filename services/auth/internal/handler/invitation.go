@@ -11,12 +11,13 @@ import (
 )
 
 // CreateInvitationHandler handles creating a new invitation.
-// It expects JSON with email, squadID, and createdBy.
+// It expects JSON with email, squadID, roleID, and createdBy.
 func CreateInvitationHandler(invitationRepo repository.InvitationRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
 			Email    string `json:"email" binding:"required,email"`
 			SquadID  int64  `json:"squad_id" binding:"required"`
+			RoleID   int64  `json:"role_id" binding:"required"`
 			CreatedBy int64  `json:"created_by" binding:"required"`
 		}
 
@@ -25,7 +26,7 @@ func CreateInvitationHandler(invitationRepo repository.InvitationRepository) gin
 			return
 		}
 
-		invitation, err := invitationRepo.CreateInvitation(c, input.Email, input.SquadID, input.CreatedBy)
+		invitation, err := invitationRepo.CreateInvitation(c, input.Email, input.SquadID, input.RoleID, input.CreatedBy)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create invitation"})
 			return

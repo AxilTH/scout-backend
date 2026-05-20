@@ -1,0 +1,4 @@
+-- No-op: Cross-database foreign keys are not supported in PostgreSQL.
+-- We rely on application-level validation for the squad_id.
+-- The squad_id column is already present in the invitations table.
+-- Application code should validate that the squad exists by calling the squad service.
